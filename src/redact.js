@@ -41,16 +41,48 @@ export function createRedactor({ paths = true, emails = true } = {}) {
     counts[kind] = (counts[kind] || 0) + 1;
   }
 
+  // Every secret value found anywhere. A key that shows up once as
+  // "API_KEY=abc…" is often echoed bare later (tool output, logs, an `echo`),
+  // where no pattern would recognise it — so known values are scrubbed everywhere.
+  const known = new Set();
+  const MIN_ECHO_LEN = 8; // shorter values are too likely to be ordinary text
+
+  /** The secret part of a pattern match, without kept prefixes like "API_KEY=" or "Bearer ". */
+  function secretPart(m) {
+    const groups = m.slice(1, -2).filter((g) => typeof g === 'string');
+    let value = m[0];
+    if (groups.length >= 1 && value.startsWith(groups[0])) value = value.slice(groups[0].length);
+    if (groups.length === 2 && value.endsWith(groups[1])) value = value.slice(0, value.length - groups[1].length);
+    return { value, groups };
+  }
+
+  function collect(s) {
+    for (const [, re] of SECRET_PATTERNS) {
+      for (const m of s.matchAll(re)) {
+        const { value } = secretPart([...m, m.index, s]);
+        if (value.length >= MIN_ECHO_LEN) known.add(value);
+      }
+    }
+  }
+
   function redactString(s) {
     for (const [kind, re] of SECRET_PATTERNS) {
       s = s.replace(re, (...m) => {
         bump(kind);
         // keep capture-group prefixes/suffixes (e.g. "API_KEY=" or "Bearer ")
-        const groups = m.slice(1, -2).filter((g) => typeof g === 'string');
+        const { groups } = secretPart(m);
         if (groups.length === 2) return `${groups[0]}[REDACTED]${groups[1]}`;
         if (groups.length === 1) return `${groups[0]}[REDACTED]`;
         return `[REDACTED ${kind}]`;
       });
+    }
+    // Second line of defence: bare copies of secrets seen elsewhere in the session.
+    for (const value of knownByLength) {
+      if (s.includes(value)) {
+        const parts = s.split(value);
+        for (let i = 1; i < parts.length; i++) bump('echoed secret');
+        s = parts.join('[REDACTED]');
+      }
     }
     if (emails) {
       s = s.replace(EMAIL, (m) => {
@@ -72,18 +104,26 @@ export function createRedactor({ paths = true, emails = true } = {}) {
     return s;
   }
 
-  function walk(v) {
-    if (typeof v === 'string') return redactString(v);
-    if (Array.isArray(v)) return v.map(walk);
+  function walk(v, fn) {
+    if (typeof v === 'string') return fn(v);
+    if (Array.isArray(v)) return v.map((x) => walk(x, fn));
     if (v && typeof v === 'object') {
       const out = {};
-      for (const [k, val] of Object.entries(v)) out[k] = walk(val);
+      for (const [k, val] of Object.entries(v)) out[k] = walk(val, fn);
       return out;
     }
     return v;
   }
 
-  return { redact: walk, counts };
+  let knownByLength = [];
+  function redact(v) {
+    // Pass 1: learn every secret value in the whole session. Pass 2: scrub.
+    walk(v, (s) => (collect(s), s));
+    knownByLength = [...known].sort((a, b) => b.length - a.length);
+    return walk(v, redactString);
+  }
+
+  return { redact, counts };
 }
 
 function toPosixDrive(p) {

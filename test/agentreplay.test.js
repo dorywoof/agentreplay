@@ -124,3 +124,27 @@ test('stats count changed files and lines', () => {
   assert.equal(st.errors, 1);
   assert.ok(st.cost > 0);
 });
+
+test('scrubs secrets echoed elsewhere without their KEY= prefix', () => {
+  const { redact, counts } = createRedactor({ paths: false });
+  const out = redact({
+    events: [
+      { kind: 'tool', input: 'cat .env', output: 'DB_PASSWORD=s3cretPassw0rd99\nPORT=3000' },
+      { kind: 'tool', input: 'echo $DB_PASSWORD', output: 's3cretPassw0rd99' },
+      { kind: 'assistant', text: 'Connected with s3cretPassw0rd99 — and an OpenAI key sk-proj-abcdefghijklmnopqrstuvwx1234 that I printed raw: abcdefghijklmnopqrstuvwx1234 is not echoed, but sk-proj-abcdefghijklmnopqrstuvwx1234 again is.' },
+    ],
+  });
+  const all = JSON.stringify(out);
+  assert.ok(!all.includes('s3cretPassw0rd99'), 'bare echo of the env value is gone');
+  assert.ok(!all.includes('sk-proj-abcdefghijklmnopqrstuvwx1234'));
+  assert.ok(out.events[0].output.startsWith('DB_PASSWORD=[REDACTED]'));
+  assert.ok(out.events[0].output.includes('PORT=3000'), 'non-secret values stay');
+  assert.equal(out.events[1].output, '[REDACTED]');
+  assert.ok(counts['echoed secret'] >= 2);
+});
+
+test('does not treat short or ordinary values as echoed secrets', () => {
+  const { redact } = createRedactor({ paths: false });
+  const out = redact({ a: 'TOKEN=abc12', b: 'abc12 appears in normal text' });
+  assert.equal(out.b, 'abc12 appears in normal text');
+});
