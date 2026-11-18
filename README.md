@@ -49,6 +49,23 @@ npx @dorywoof/agentreplay --agents   # which agents were found on this machine
 
 Requires Node 18+. Nothing is uploaded anywhere: everything happens on your machine.
 
+### As a Claude Code plugin
+
+Replay the session you're in without leaving Claude Code:
+
+```
+/plugin install agentreplay --marketplace dorywoof/agentreplay
+```
+
+On older Claude Code versions, use two steps instead:
+
+```
+/plugin marketplace add dorywoof/agentreplay
+/plugin install agentreplay@agentreplay
+```
+
+Then type `/agentreplay:replay`, or just ask *"make a replay of this session"*. Claude runs the CLI for you, writes the HTML next to your project and tells you what was redacted. Arguments pass through, for example `/agentreplay:replay --list`.
+
 ### Where sessions live
 
 Sessions are found automatically. You can also pass any file directly.
@@ -77,6 +94,7 @@ Sessions are found automatically. You can also pass any file directly.
 ```
 -o, --out <file>      output HTML path (default: ./replay-<id>.html)
 -a, --agent <name>    only one agent (see the table above)
+-s, --session <id>    replay the session whose id / file name matches
 -t, --title <text>    override the replay title
     --no-thinking     hide thinking / reasoning blocks
     --no-redact       keep secrets, e-mails and home paths (not for sharing!)

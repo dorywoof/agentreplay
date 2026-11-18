@@ -17,6 +17,7 @@ Usage
   agentreplay <session.jsonl>    replay a specific log file
   agentreplay --list             list recent sessions
   agentreplay --pick 3           replay #3 from --list
+  agentreplay --session <id>     replay the session whose id / file name matches
   agentreplay --agents           show supported agents and what was found
 
 Options
@@ -42,6 +43,7 @@ const { values: opts, positionals } = parseArgs({
     list: { type: 'boolean', short: 'l' },
     agents: { type: 'boolean' },
     pick: { type: 'string', short: 'p' },
+    session: { type: 'string', short: 's' },
     'no-thinking': { type: 'boolean' },
     'no-redact': { type: 'boolean' },
     'keep-paths': { type: 'boolean' },
@@ -102,9 +104,19 @@ function main() {
   } else {
     const sessions = listSessions({ agent: opts.agent });
     if (!sessions.length) fail('no agent sessions found on this machine. Pass a log file path instead.');
-    const idx = opts.pick ? Number(opts.pick) - 1 : 0;
-    if (!sessions[idx]) fail(`no session #${opts.pick} — run with --list to see what's available`);
-    ({ file, agent } = sessions[idx]);
+    let chosen = null;
+    const wanted = (opts.session || '').trim();
+    // An unexpanded "${CLAUDE_SESSION_ID}" or an unknown id falls back to the newest session.
+    if (wanted && !wanted.includes('$')) {
+      chosen = sessions.find((s) => path.basename(s.file).includes(wanted) || s.file.endsWith('#' + wanted));
+      if (!chosen) console.error(dim(`session "${wanted}" not found — using the most recent one`));
+    }
+    if (!chosen) {
+      const idx = opts.pick ? Number(opts.pick) - 1 : 0;
+      if (!sessions[idx]) fail(`no session #${opts.pick} — run with --list to see what's available`);
+      chosen = sessions[idx];
+    }
+    ({ file, agent } = chosen);
   }
 
   let session = PARSERS[agent].parse(file);

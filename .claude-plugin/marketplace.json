@@ -1,0 +1,16 @@
+{
+  "name": "agentreplay",
+  "description": "Shareable, video-like replays of AI coding sessions.",
+  "owner": {
+    "name": "dorywoof",
+    "url": "https://github.com/dorywoof"
+  },
+  "plugins": [
+    {
+      "name": "agentreplay",
+      "source": "./",
+      "description": "Turn this Claude Code session (or any coding-agent session) into a shareable, video-like HTML replay with diffs, cost stats and automatic secret redaction.",
+      "category": "productivity"
+    }
+  ]
+}
