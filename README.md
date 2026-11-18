@@ -1,7 +1,8 @@
 <h1 align="center">agentreplay</h1>
 
 <p align="center">
-  <b>Turn any Claude Code or Codex session into a shareable, video-like replay.</b><br>
+  <b>Turn any AI coding agent session into a shareable, video-like replay.</b><br>
+  Claude Code · Codex · Gemini CLI · OpenCode · Cline · Roo · Kilo · Copilot CLI · Qwen · Amp · Aider · any chat log<br>
   One command. One self-contained HTML file. Secrets stripped before you share.
 </p>
 
@@ -26,10 +27,10 @@ You just watched an AI agent build a feature in 6 minutes. Now you want to show 
 ## Features
 
 - ▶️ **Plays like a video.** Events appear in order with condensed timing; scrub, skip, pause, or change speed. Edits, errors and prompts are marked on the timeline.
-- 🤝 **Claude Code *and* Codex.** Auto-detects the format. More agents are on the roadmap.
-- 💸 **Cost and token panel.** Input, output and cache tokens, plus an estimated API cost at list prices.
+- 🤝 **Works with (almost) every agent.** Built-in support for 11 coding agents, plus a universal parser that understands Anthropic, OpenAI and Gemini message formats. Point it at any JSON or JSONL chat log and it will try to replay it.
+- 💸 **Cost and token panel.** Input, output and cache tokens. Shows the real cost when the agent records it (Cline, Roo, OpenCode), otherwise an estimate at list prices.
 - 🔒 **Safe to share by default.** API keys, tokens, JWTs, private keys, passwords in env assignments, e-mail addresses and your home directory are redacted *before* the HTML is written. The footer says what was removed.
-- 📝 **Real diffs.** `Edit`, `Write`, `MultiEdit` and Codex `apply_patch` are shown as red and green diffs, with a per-file `+/-` summary.
+- 📝 **Real diffs.** Edits are shown as red and green diffs with a per-file `+/-` summary: Claude's `Edit`/`Write`, Codex `apply_patch`, Cline/Roo/Aider SEARCH/REPLACE blocks, OpenCode and Gemini edit tools.
 - 📦 **One file, zero dependencies.** The output is one HTML file that works offline. Host it anywhere: GitHub Pages, a gist, Slack, e-mail.
 - 🌗 Light and dark themes, works on phones, and keyboard shortcuts (`space`, `←` `→`, `Home`, `End`).
 
@@ -40,27 +41,42 @@ npx @dorywoof/agentreplay            # replays your most recent session and open
 ```
 
 ```bash
-npx @dorywoof/agentreplay --list     # pick from recent Claude Code / Codex sessions
+npx @dorywoof/agentreplay --list     # pick from recent sessions of every agent
 npx @dorywoof/agentreplay --pick 3
 npx @dorywoof/agentreplay path/to/session.jsonl -o my-replay.html
+npx @dorywoof/agentreplay --agents   # which agents were found on this machine
 ```
 
 Requires Node 18+. Nothing is uploaded anywhere: everything happens on your machine.
 
 ### Where sessions live
 
-| Agent | Location |
-|---|---|
-| Claude Code | `~/.claude/projects/<project>/<session>.jsonl` |
-| Codex | `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` |
+Sessions are found automatically. You can also pass any file directly.
 
-`CLAUDE_CONFIG_DIR` and `CODEX_HOME` are respected.
+| Agent | `--agent` | Where it looks |
+|---|---|---|
+| Claude Code | `claude` | `~/.claude/projects/*/*.jsonl` |
+| Codex | `codex` | `~/.codex/sessions/**/rollout-*.jsonl` |
+| Gemini CLI | `gemini` | `~/.gemini/tmp/*/chats/*.json(l)` |
+| Qwen Code | `qwen` | `~/.qwen/projects/*/chats/*.jsonl` |
+| OpenCode | `opencode` | `~/.local/share/opencode/`: `storage/` JSON, `opencode.db`, or an `opencode export` file |
+| Cline | `cline` | VS Code / Cursor / Windsurf globalStorage `saoudrizwan.claude-dev/tasks/*`, `~/.cline/data/tasks/*` |
+| Roo Code | `roo` | globalStorage `rooveterinaryinc.roo-cline/tasks/*` |
+| Kilo Code | `kilo` | globalStorage `kilocode.kilo-code/tasks/*` |
+| GitHub Copilot CLI | `copilot` | `~/.copilot/session-state/**/*.jsonl` |
+| Amp | `amp` | `~/.local/share/amp/threads/*.json` |
+| Aider | `aider` | `.aider.chat.history.md` in the current folder |
+| Anything else | `generic` | Pass the file: Anthropic / OpenAI / Gemini-style messages in JSON or JSONL |
+
+`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `GEMINI_DIR`, `QWEN_DATA_DIR`, `AMP_DATA_DIR`, `COPILOT_HOME` and `XDG_DATA_HOME` are respected. Reading `opencode.db` needs Node 22.5+ (built-in SQLite).
+
+> Only Claude Code and Codex have been tested against real logs so far. The others are built from their documented formats and tested with fixtures. If a session from your agent doesn't replay correctly, please [open an issue](https://github.com/dorywoof/agentreplay/issues) with a redacted sample.
 
 ## Options
 
 ```
 -o, --out <file>      output HTML path (default: ./replay-<id>.html)
--a, --agent <name>    only look at "claude" or "codex" sessions
+-a, --agent <name>    only one agent (see the table above)
 -t, --title <text>    override the replay title
     --no-thinking     hide thinking / reasoning blocks
     --no-redact       keep secrets, e-mails and home paths (not for sharing!)
@@ -84,7 +100,7 @@ The output is a static file, so any of these work:
 
 ## About the cost estimate
 
-Cost uses public per-token API list prices (including cache reads and writes) for the Claude models it knows about. If you're on a subscription plan, it shows what the session *would* cost on the API. For models it has no price for (for example Codex models), only token counts are shown. You can supply your own prices:
+When the agent records what a session cost (Cline, Roo, Kilo, OpenCode), that number is shown. Otherwise cost is estimated from public per-token API list prices (including cache reads and writes) for the Claude models it knows about. If you're on a subscription plan, it shows what the session *would* cost on the API. For models it has no price for, only token counts are shown. You can supply your own prices:
 
 ```json
 { "gpt-6.1": { "input": 1.25, "output": 10, "cacheRead": 0.125 } }
@@ -96,13 +112,14 @@ npx @dorywoof/agentreplay --pricing prices.json
 
 ## Roadmap
 
-- [ ] opencode, Gemini CLI and Cursor agent logs
+- [ ] Cursor and Windsurf built-in chat (stored in proprietary SQLite blobs)
+- [ ] Goose, Crush, Droid and Kiro sessions
 - [ ] Export to GIF / MP4 for social posts
 - [ ] Subagent (sidechain) lanes
 - [ ] `agentreplay publish`: one-command upload to a gist
 - [ ] Combine several sessions into one replay
 
-Ideas and PRs are welcome. Adding a new agent means writing one parser in `src/parsers/` that returns the shared event shape.
+Ideas and PRs are welcome. Adding a new agent usually means a few lines in `src/parsers/agents.js` that find its files and hand them to the universal parser.
 
 ## Development
 

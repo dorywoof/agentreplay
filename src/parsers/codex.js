@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { readJsonl, toText, truncate } from '../util.js';
+import { readJsonl, toText, truncate, parsePatch } from '../util.js';
 
 const MAX_OUTPUT = 4000;
 
@@ -168,28 +168,6 @@ function toolEvent(name, raw, ts) {
   return ev;
 }
 
-/** Turn an apply_patch envelope into the same diff shape the Claude parser uses. */
 function fromPatch(patch) {
-  const files = [];
-  let cur = null;
-  for (const line of patch.split('\n')) {
-    const m = line.match(/^\*\*\* (Add|Update|Delete) File: (.+)$/);
-    if (m) {
-      cur = { file: m[2].trim(), op: m[1], old: [], new: [] };
-      files.push(cur);
-      continue;
-    }
-    if (!cur || line.startsWith('***') || line.startsWith('@@')) continue;
-    if (line.startsWith('+')) cur.new.push(line.slice(1));
-    else if (line.startsWith('-')) cur.old.push(line.slice(1));
-  }
-  const first = files[0] || { file: '(patch)', old: [], new: [] };
-  return {
-    file: first.file,
-    files: files.map((f) => f.file),
-    created: first.op === 'Add',
-    summary: files.map((f) => f.file).join(', '),
-    diff: files.map((f) => ({ old: truncate(f.old.join('\n'), MAX_OUTPUT), new: truncate(f.new.join('\n'), MAX_OUTPUT), file: f.file })),
-    lines: files.reduce((a, f) => ({ added: a.added + f.new.length, removed: a.removed + f.old.length }), { added: 0, removed: 0 }),
-  };
+  return parsePatch(patch, MAX_OUTPUT);
 }

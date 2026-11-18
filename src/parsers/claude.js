@@ -6,7 +6,7 @@ const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 
 /** Does this file look like a Claude Code session log? */
 export function detect(records) {
-  return records.some((r) => (r.type === 'assistant' || r.type === 'user') && r.message && r.sessionId);
+  return records.some((r) => (r.type === 'assistant' || r.type === 'user') && r.message && !r.message.parts && r.sessionId && ('parentUuid' in r || 'uuid' in r));
 }
 
 /**

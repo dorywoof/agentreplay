@@ -156,14 +156,14 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 4
   /* ---------- summary card ---------- */
   const date = S.start ? new Date(S.start).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '';
   const tiles = [
-    [dur(S.activeMs), 'active time'],
+    ...(S.timesSynthetic ? [] : [[dur(S.activeMs), 'active time']]),
     [S.prompts, S.prompts === 1 ? 'prompt' : 'prompts'],
     [S.toolCalls, 'tool calls'],
     [S.files.length, 'files changed'],
     [`<span class="add">+${num(S.linesAdded)}</span> <span class="del">−${num(S.linesRemoved)}</span>`, 'lines'],
     [num(S.tokens.total), 'tokens'],
   ];
-  if (S.cost != null) tiles.push(['$' + (S.cost < 10 ? S.cost.toFixed(2) : Math.round(S.cost)), 'est. API cost']);
+  if (S.cost != null) tiles.push(['$' + (S.cost < 10 ? S.cost.toFixed(2) : Math.round(S.cost)), S.costReported ? 'cost' : 'est. API cost']);
   $('card').innerHTML = `
     <div class="card-top"><span class="badge">${esc(D.agent)}</span>
       ${D.models.length ? `<span>${esc(D.models.join(', '))}</span>` : ''}
@@ -189,7 +189,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 4
         <li><span>Cache write</span><span class="n">${num(S.tokens.cacheWrite)}</span></li>
         ${S.errors ? `<li><span>Failed tool calls</span><span class="n" style="color:var(--err)">${S.errors}</span></li>` : ''}
       </ul>
-      ${S.cost != null ? '<div class="redacted">Cost is an estimate at public API list prices.</div>' : ''}
+      ${S.cost != null && !S.costReported ? '<div class="redacted">Cost is an estimate at public API list prices.</div>' : ''}
     </div>`;
 
   const red = D.redactions ? Object.entries(D.redactions) : [];

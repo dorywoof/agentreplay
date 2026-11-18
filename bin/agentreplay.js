@@ -17,10 +17,12 @@ Usage
   agentreplay <session.jsonl>    replay a specific log file
   agentreplay --list             list recent sessions
   agentreplay --pick 3           replay #3 from --list
+  agentreplay --agents           show supported agents and what was found
 
 Options
   -o, --out <file>      output HTML path (default: ./replay-<id>.html)
-  -a, --agent <name>    only look at "claude" or "codex" sessions
+  -a, --agent <name>    only one agent: claude, codex, gemini, qwen, opencode,
+                        cline, roo, kilo, copilot, amp, aider, generic
   -t, --title <text>    override the replay title
       --no-thinking     hide thinking / reasoning blocks
       --no-redact       keep secrets, e-mails and home paths (not for sharing!)
@@ -38,6 +40,7 @@ const { values: opts, positionals } = parseArgs({
     agent: { type: 'string', short: 'a' },
     title: { type: 'string', short: 't' },
     list: { type: 'boolean', short: 'l' },
+    agents: { type: 'boolean' },
     pick: { type: 'string', short: 'p' },
     'no-thinking': { type: 'boolean' },
     'no-redact': { type: 'boolean' },
@@ -66,14 +69,25 @@ function ago(ms) {
 
 function main() {
   if (opts.help) return console.log(HELP);
-  if (opts.agent && !PARSERS[opts.agent]) fail(`unknown agent "${opts.agent}" (use claude or codex)`);
+  if (opts.agent && !PARSERS[opts.agent]) fail(`unknown agent "${opts.agent}" (one of: ${Object.keys(PARSERS).join(', ')})`);
+
+  if (opts.agents) {
+    console.log(bold('Supported agents') + dim('  (sessions found on this machine)') + '\n');
+    for (const [key, src] of Object.entries(PARSERS)) {
+      if (key === 'generic') continue;
+      const n = listSessions({ agent: key }).length;
+      console.log(`  ${key.padEnd(9)} ${src.label.padEnd(13)} ${n ? bold(String(n)) : dim('0')}`);
+    }
+    console.log('\n' + dim('Any other JSON / JSONL chat log works too: agentreplay path/to/log.json'));
+    return;
+  }
 
   if (opts.list) {
     const sessions = listSessions({ agent: opts.agent }).slice(0, 20);
-    if (!sessions.length) fail('no Claude Code or Codex sessions found on this machine');
+    if (!sessions.length) fail('no agent sessions found on this machine. Pass a log file path instead.');
     sessions.forEach((s, i) => {
-      const tag = s.agent === 'claude' ? 'claude' : 'codex ';
-      console.log(`${bold(String(i + 1).padStart(2))}  ${tag}  ${dim(ago(s.mtime).padEnd(8))}  ${preview(s.file)}`);
+      const tag = PARSERS[s.agent].label.padEnd(12);
+      console.log(`${bold(String(i + 1).padStart(2))}  ${tag}  ${dim(ago(s.mtime).padEnd(8))}  ${preview(s.file, s.agent)}`);
     });
     console.log(dim('\nReplay one with: agentreplay --pick <n>'));
     return;
@@ -82,12 +96,12 @@ function main() {
   let file, agent;
   if (positionals[0]) {
     file = path.resolve(positionals[0]);
-    if (!fs.existsSync(file)) fail(`file not found: ${file}`);
+    if (!fs.existsSync(file.split('#')[0])) fail(`file not found: ${file}`);
     agent = opts.agent || detectAgent(file);
-    if (!agent) fail('could not recognise this log format (supported: Claude Code, Codex)');
+    if (!agent) fail('could not find a conversation in this file. Run agentreplay --agents to see supported formats.');
   } else {
     const sessions = listSessions({ agent: opts.agent });
-    if (!sessions.length) fail('no Claude Code or Codex sessions found. Pass a .jsonl file path instead.');
+    if (!sessions.length) fail('no agent sessions found on this machine. Pass a log file path instead.');
     const idx = opts.pick ? Number(opts.pick) - 1 : 0;
     if (!sessions[idx]) fail(`no session #${opts.pick} — run with --list to see what's available`);
     ({ file, agent } = sessions[idx]);
@@ -112,7 +126,7 @@ function main() {
     return;
   }
 
-  const out = path.resolve(opts.out || `replay-${session.id.slice(0, 8)}.html`);
+  const out = path.resolve(opts.out || `replay-${String(session.id).replace(/[^w-]/g, '').slice(0, 12) || 'session'}.html`);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, renderHtml(session, stats, { redactions }));
 

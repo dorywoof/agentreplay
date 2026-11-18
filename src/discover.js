@@ -2,73 +2,108 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { readJsonl, stripHarnessTags } from './util.js';
-import * as claude from './parsers/claude.js';
-import * as codex from './parsers/codex.js';
+import * as claudeParser from './parsers/claude.js';
+import * as codexParser from './parsers/codex.js';
+import * as agents from './parsers/agents.js';
+import * as universal from './parsers/universal.js';
 
-export const PARSERS = { claude, codex };
+const home = os.homedir();
 
-function claudeRoot() {
-  return path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'projects');
-}
-function codexRoot() {
-  return path.join(process.env.CODEX_HOME || path.join(os.homedir(), '.codex'), 'sessions');
-}
+const claude = {
+  label: 'Claude Code',
+  // projects/<project>/<session>.jsonl — subagent logs nested deeper are skipped
+  find: () => agents.walk(path.join(process.env.CLAUDE_CONFIG_DIR || path.join(home, '.claude'), 'projects'), 1, (n) => n.endsWith('.jsonl')),
+  parse: (f) => claudeParser.parse(f),
+};
+const codex = {
+  label: 'Codex',
+  find: () => agents.walk(path.join(process.env.CODEX_HOME || path.join(home, '.codex'), 'sessions'), 4, (n) => n.endsWith('.jsonl')),
+  parse: (f) => codexParser.parse(f),
+};
 
-function walk(dir, depth, out) {
-  let entries;
+/** Every agent we know how to find and replay. Keys are what --agent accepts. */
+export const PARSERS = {
+  claude,
+  codex,
+  gemini: agents.gemini,
+  qwen: agents.qwen,
+  opencode: agents.opencode,
+  cline: agents.cline,
+  roo: agents.roo,
+  kilo: agents.kilo,
+  copilot: agents.copilot,
+  amp: agents.amp,
+  aider: agents.aider,
+  generic: agents.generic,
+};
+
+function mtimeOf(ref) {
   try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
+    return fs.statSync(ref.split('#')[0]).mtimeMs;
   } catch {
-    return out;
+    return 0;
   }
-  for (const e of entries) {
-    const p = path.join(dir, e.name);
-    if (e.isDirectory() && depth > 0) walk(p, depth - 1, out);
-    else if (e.isFile() && e.name.endsWith('.jsonl')) out.push(p);
-  }
-  return out;
 }
 
-/** All known session files on this machine, newest first. */
+/** All sessions found on this machine, newest first. */
 export function listSessions({ agent } = {}) {
   const found = [];
-  if (!agent || agent === 'claude') {
-    // projects/<project>/<session>.jsonl — skip subagent logs nested deeper
-    for (const f of walk(claudeRoot(), 1, [])) found.push({ agent: 'claude', file: f });
+  for (const [key, src] of Object.entries(PARSERS)) {
+    if (agent && agent !== key) continue;
+    let files = [];
+    try {
+      files = src.find();
+    } catch {
+      /* a broken store for one agent shouldn't hide the others */
+    }
+    for (const file of files) found.push({ agent: key, file, mtime: mtimeOf(file) });
   }
-  if (!agent || agent === 'codex') {
-    for (const f of walk(codexRoot(), 4, [])) found.push({ agent: 'codex', file: f });
-  }
-  for (const s of found) s.mtime = fs.statSync(s.file).mtimeMs;
   return found.sort((a, b) => b.mtime - a.mtime);
 }
 
-/** Pick the parser for an arbitrary file by sniffing its first records. */
+/** Pick the parser for an arbitrary file path. */
 export function detectAgent(file) {
-  const records = readJsonl(file).slice(0, 50);
-  if (codex.detect(records)) return 'codex';
-  if (claude.detect(records)) return 'claude';
+  const base = path.basename(file);
+  if (base === 'api_conversation_history.json' || base === 'ui_messages.json') {
+    for (const k of ['roo', 'kilo', 'cline']) if (PARSERS[k].match(file)) return k;
+    return 'cline';
+  }
+  if (file.endsWith('.md')) return 'aider';
+  if (file.includes('.db#') || base === 'opencode.db') return 'opencode';
+  for (const k of ['gemini', 'qwen', 'amp', 'copilot', 'opencode']) if (PARSERS[k].match(file)) return k;
+  if (file.endsWith('.jsonl')) {
+    const records = readJsonl(file).slice(0, 50);
+    if (codexParser.detect(records)) return 'codex';
+    if (claudeParser.detect(records)) return 'claude';
+  }
+  if (universal.detect(file)) return 'generic';
   return null;
 }
 
-/** Cheap one-line preview for --list without fully parsing. */
-export function preview(file) {
+/** Cheap one-line preview for --list. */
+export function preview(file, agent) {
   try {
-    const records = readJsonl(file);
-    for (const r of records) if (r.type === 'ai-title' && r.aiTitle) return r.aiTitle;
-    for (const r of records) {
-      if (r.isMeta || r.isSidechain) continue;
-      const isUser = r.type === 'user' || (r.payload?.type === 'message' && r.payload.role === 'user');
-      if (!isUser) continue;
-      const c = r.message?.content ?? r.payload.content;
-      const blocks = typeof c === 'string' ? [c] : Array.isArray(c) ? c.map((b) => (b.type === 'tool_result' ? '' : b.text || '')) : [];
-      for (const b of blocks) {
-        const clean = stripHarnessTags(b);
-        if (clean && !clean.startsWith('<')) return clean.split('\n')[0].slice(0, 70);
-      }
-    }
+    if (agent === 'claude' || agent === 'codex') return previewJsonl(file);
+    const s = PARSERS[agent].parse(file);
+    return s.title || '(no prompt)';
   } catch {
-    /* unreadable */
+    return '(unreadable)';
+  }
+}
+
+function previewJsonl(file) {
+  const records = readJsonl(file);
+  for (const r of records) if (r.type === 'ai-title' && r.aiTitle) return r.aiTitle;
+  for (const r of records) {
+    if (r.isMeta || r.isSidechain) continue;
+    const isUser = r.type === 'user' || (r.payload?.type === 'message' && r.payload.role === 'user');
+    if (!isUser) continue;
+    const c = r.message?.content ?? r.payload.content;
+    const blocks = typeof c === 'string' ? [c] : Array.isArray(c) ? c.map((b) => (b.type === 'tool_result' ? '' : b.text || '')) : [];
+    for (const b of blocks) {
+      const clean = stripHarnessTags(b);
+      if (clean && !clean.startsWith('<')) return clean.split('\n')[0].slice(0, 70);
+    }
   }
   return '(no prompt)';
 }

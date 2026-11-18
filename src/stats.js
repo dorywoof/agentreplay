@@ -57,6 +57,8 @@ export function computeStats(session, pricing) {
       cacheWrite: u.cacheWrite + u.cacheWrite1h,
       total: u.input + u.output + u.cacheRead + u.cacheWrite + u.cacheWrite1h,
     },
-    cost: estimateCost(session.usageByModel, pricing),
+    cost: session.reportedCost ?? estimateCost(session.usageByModel, pricing),
+    costReported: session.reportedCost != null,
+    timesSynthetic: !!session.timesSynthetic,
   };
 }
