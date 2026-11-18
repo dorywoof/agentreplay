@@ -10,7 +10,11 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshot.jpg" alt="agentreplay showing a Claude Code session: summary card, timeline and file diffs" width="800">
+  <a href="https://dorywoof.github.io/agentreplay/"><b>▶ Try the live demo</b></a>
+</p>
+
+<p align="center">
+  <a href="https://dorywoof.github.io/agentreplay/"><img src="docs/demo.gif" alt="agentreplay playing back a Claude Code session: prompts, tool calls, diffs, a failing test and the fix" width="800"></a>
 </p>
 
 ---

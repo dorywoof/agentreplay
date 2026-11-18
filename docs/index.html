@@ -241,7 +241,7 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 4
         ${e.input ? `<div class="lbl">Input</div><pre>${esc(e.input)}</pre>` : ''}
         ${e.output ? `<div class="lbl">${e.isError ? 'Error' : 'Output'}</div><pre>${esc(e.output)}</pre>` : ''}</div>`;
       el.querySelector('.tool-head').onclick = () => el.classList.toggle('open');
-      if (e.diff) el.classList.add('open');
+      if (e.diff || e.isError) el.classList.add('open');
     }
     return el;
   }
