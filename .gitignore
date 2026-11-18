@@ -1,0 +1,4 @@
+node_modules/
+# replays generated from your own sessions — may contain private data
+replay-*.html
+*.private.html

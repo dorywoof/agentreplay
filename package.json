@@ -1,0 +1,41 @@
+{
+  "name": "agentreplay",
+  "version": "0.1.0",
+  "description": "Turn Claude Code and Codex sessions into a shareable, video-like HTML replay — with cost stats and automatic secret redaction.",
+  "homepage": "https://github.com/dorywoof/agentreplay#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dorywoof/agentreplay.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dorywoof/agentreplay/issues"
+  },
+  "type": "module",
+  "bin": {
+    "agentreplay": "bin/agentreplay.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/",
+    "demo": "node bin/agentreplay.js examples/demo-session.jsonl -o examples/demo.html --no-open"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "claude-code",
+    "codex",
+    "ai-agent",
+    "replay",
+    "session",
+    "transcript",
+    "llm",
+    "cli"
+  ],
+  "license": "MIT"
+}

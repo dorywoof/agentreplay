@@ -1,0 +1,63 @@
+import fs from 'node:fs';
+
+/**
+ * USD per 1M tokens. Cache writes are priced from the input rate
+ * (5-minute writes 1.25x, 1-hour writes 2x); cache reads use `cacheRead`
+ * when given, else 0.1x input. These are list prices for the first-party
+ * API and are only an estimate of what a session cost — subscription plans
+ * are billed differently. Override with --pricing <file.json>.
+ *
+ * Models are matched by longest prefix.
+ */
+export const DEFAULT_PRICING = {
+  'claude-fable-5-2': { input: 8, output: 40, cacheRead: 0.2 },
+  'claude-mythos-5-2': { input: 8, output: 40, cacheRead: 0.2 },
+  'claude-fable-5-1': { input: 10, output: 50 },
+  'claude-mythos-5-1': { input: 10, output: 50 },
+  'claude-fable-5': { input: 10, output: 50 },
+  'claude-opus-5-5': { input: 4, output: 20, cacheRead: 0.2 },
+  'claude-opus-5': { input: 5, output: 25 },
+  'claude-opus-4-8': { input: 5, output: 25 },
+  'claude-opus-4-7': { input: 5, output: 25 },
+  'claude-opus-4-6': { input: 5, output: 25 },
+  'claude-sonnet-5-5': { input: 2, output: 10, cacheRead: 0.1 },
+  'claude-sonnet-5': { input: 2, output: 10 },
+  'claude-sonnet-4-6': { input: 3, output: 15 },
+  'claude-haiku-5-5': { input: 0.1, output: 0.5 },
+  'claude-haiku-4-5': { input: 1, output: 5 },
+};
+
+export function loadPricing(file) {
+  if (!file) return DEFAULT_PRICING;
+  const custom = JSON.parse(fs.readFileSync(file, 'utf8'));
+  return { ...DEFAULT_PRICING, ...custom };
+}
+
+function rateFor(model, pricing) {
+  const keys = Object.keys(pricing)
+    .filter((k) => model.startsWith(k))
+    .sort((a, b) => b.length - a.length);
+  return keys.length ? pricing[keys[0]] : null;
+}
+
+/** Returns estimated USD, or null when any used model has no known price. */
+export function estimateCost(usageByModel, pricing) {
+  let total = 0;
+  let any = false;
+  for (const [model, u] of Object.entries(usageByModel)) {
+    const tokens = u.input + u.output + u.cacheRead + u.cacheWrite + u.cacheWrite1h;
+    if (!tokens) continue;
+    const r = rateFor(model, pricing);
+    if (!r) return null;
+    any = true;
+    const cacheRead = r.cacheRead ?? r.input * 0.1;
+    total +=
+      (u.input * r.input +
+        u.output * r.output +
+        u.cacheRead * cacheRead +
+        u.cacheWrite * r.input * 1.25 +
+        u.cacheWrite1h * r.input * 2) /
+      1e6;
+  }
+  return any ? total : null;
+}
