@@ -119,7 +119,7 @@ function main() {
     return;
   }
 
-  let file, agent;
+  let file, agent, session;
   if (positionals[0]) {
     file = path.resolve(positionals[0]);
     if (!fs.existsSync(file.split('#')[0])) fail(`file not found: ${file}`);
@@ -135,15 +135,32 @@ function main() {
       chosen = sessions.find((s) => path.basename(s.file).includes(wanted) || s.file.endsWith('#' + wanted));
       if (!chosen) console.error(dim(`session "${wanted}" not found — using the most recent one`));
     }
-    if (!chosen) {
-      const idx = opts.pick ? Number(opts.pick) - 1 : 0;
-      if (!sessions[idx]) fail(`no session #${opts.pick} — run with --list to see what's available`);
-      chosen = sessions[idx];
+    if (!chosen && opts.pick) {
+      chosen = sessions[Number(opts.pick) - 1];
+      if (!chosen) fail(`no session #${opts.pick} — run with --list to see what's available`);
     }
-    ({ file, agent } = chosen);
+    if (chosen) {
+      ({ file, agent } = chosen);
+    } else {
+      // Newest session that actually has something in it (agents leave empty logs behind).
+      for (const s of sessions.slice(0, 25)) {
+        let parsed;
+        try {
+          parsed = PARSERS[s.agent].parse(s.file);
+        } catch {
+          continue;
+        }
+        if (parsed.events.length) {
+          ({ file, agent } = s);
+          session = parsed;
+          break;
+        }
+      }
+      if (!session) fail('none of the recent sessions has any messages to replay');
+    }
   }
 
-  let session = PARSERS[agent].parse(file);
+  session ||= PARSERS[agent].parse(file);
   if (opts.title) session.title = opts.title;
   if (opts['no-thinking']) session.events = session.events.filter((e) => e.kind !== 'thinking');
   if (!session.events.length) fail('this session has no messages to replay');
