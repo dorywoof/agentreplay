@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <code>npx agentreplay</code>
+  <code>npx @dorywoof/agentreplay</code>
 </p>
 
 <p align="center">
@@ -36,13 +36,13 @@ You just watched an AI agent build a feature in 6 minutes. Now you want to show 
 ## Quick start
 
 ```bash
-npx agentreplay            # replays your most recent session and opens it
+npx @dorywoof/agentreplay            # replays your most recent session and opens it
 ```
 
 ```bash
-npx agentreplay --list     # pick from recent Claude Code / Codex sessions
-npx agentreplay --pick 3
-npx agentreplay path/to/session.jsonl -o my-replay.html
+npx @dorywoof/agentreplay --list     # pick from recent Claude Code / Codex sessions
+npx @dorywoof/agentreplay --pick 3
+npx @dorywoof/agentreplay path/to/session.jsonl -o my-replay.html
 ```
 
 Requires Node 18+. Nothing is uploaded anywhere: everything happens on your machine.
@@ -91,7 +91,7 @@ Cost uses public per-token API list prices (including cache reads and writes) fo
 ```
 
 ```bash
-npx agentreplay --pricing prices.json
+npx @dorywoof/agentreplay --pricing prices.json
 ```
 
 ## Roadmap

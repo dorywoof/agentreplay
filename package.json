@@ -1,5 +1,5 @@
 {
-  "name": "agentreplay",
+  "name": "@dorywoof/agentreplay",
   "version": "0.1.0",
   "description": "Turn Claude Code and Codex sessions into a shareable, video-like HTML replay — with cost stats and automatic secret redaction.",
   "homepage": "https://github.com/dorywoof/agentreplay#readme",
