@@ -1,6 +1,6 @@
 ---
 name: replay
-description: Turn the current Claude Code session (or another coding-agent session) into a shareable, video-like HTML replay with diffs, tool calls, token/cost stats and automatic secret redaction. Use when the user asks to replay, share, export, record, show off or summarize visually what was done in this session, or asks for a replay of an earlier Claude Code, Codex, Gemini CLI, OpenCode, Cline, Roo, Copilot CLI, Amp or Aider session.
+description: Turn the current coding-agent session into a shareable, video-like HTML replay with diffs, tool calls, token/cost stats and automatic secret redaction. Use when the user asks to replay, share, export, record or show off what was done in this session, or asks for a replay of an earlier Claude Code, Codex, Gemini CLI, OpenCode, Cline, Roo, Copilot CLI, Qwen, Amp or Aider session.
 argument-hint: "[--list | --pick N | path/to/log] [--title \"…\"] [--no-thinking]"
 allowed-tools: Bash(npx -y @dorywoof/agentreplay*), Bash(npx @dorywoof/agentreplay*)
 ---
@@ -9,37 +9,51 @@ allowed-tools: Bash(npx -y @dorywoof/agentreplay*), Bash(npx @dorywoof/agentrepl
 
 agentreplay is a zero-dependency CLI on npm (`@dorywoof/agentreplay`). It reads
 agent session logs from disk and writes one self-contained HTML file that plays
-the session back like a video. It runs locally and uploads nothing.
+the session back like a video. It runs locally and uploads nothing. It works the
+same no matter which agent is running this skill.
 
 ## Default: replay the current session
 
-The current session is the Claude Code log written most recently, so this
-picks it up without needing an id:
+Run this in the user's shell, with `<agent>` set to the agent you are:
 
 ```bash
-npx -y @dorywoof/agentreplay@latest --agent claude --session "${CLAUDE_SESSION_ID}" -o "agentreplay-$(date +%Y%m%d-%H%M).html"
+npx -y @dorywoof/agentreplay@latest --agent <agent> -o agentreplay.html
 ```
 
-- If `${CLAUDE_SESSION_ID}` is empty or unrecognised, drop the `--session`
-  flag: without it, the newest session is used, which is this one.
+| You are | `<agent>` |
+|---|---|
+| Claude Code | `claude` (also add `--session "${CLAUDE_SESSION_ID}"`) |
+| OpenAI Codex | `codex` |
+| Gemini CLI | `gemini` |
+| Qwen Code | `qwen` |
+| OpenCode | `opencode` |
+| GitHub Copilot CLI | `copilot` |
+| Cline / Roo Code / Kilo Code | `cline` / `roo` / `kilo` |
+| Amp | `amp` |
+| Aider | `aider` |
+| Not sure | leave `--agent` out: the newest session of any agent is used |
+
+- The session being written right now is the newest log of that agent, so
+  this picks it up without an id. If a `--session` value is empty or not found,
+  the CLI falls back to the newest session by itself.
 - Write the file in the current working directory unless the user names
-  another place. It opens in the browser automatically; add `--no-open` if the
-  user asked not to open it, or when running non-interactively.
-- Pass a title with `--title "…"` when the session has an obvious one-line
-  summary; otherwise the CLI picks one.
+  another place; use a more descriptive file name when there is an obvious
+  one. The file opens in the browser; add `--no-open` if the user asked not to
+  open it or there is no desktop.
+- Add `--title "…"` when the session has an obvious one-line summary.
 
 ## Other requests
 
-| User wants | Command |
+| User wants | Add |
 |---|---|
-| Choose an earlier session | `npx -y @dorywoof/agentreplay@latest --list`, then `--pick N` |
-| Replay another agent (Codex, Gemini CLI, Cline…) | `--agent codex` (see `--agents` for keys) |
-| Replay a specific log file | pass the path as the first argument |
+| Choose an earlier session | run with `--list` first, then `--pick N` |
+| See which agents have sessions on this machine | `--agents` |
+| Replay a specific log file | the file path as the first argument |
 | Hide reasoning | `--no-thinking` |
 | Keep file paths but still strip secrets | `--keep-paths` |
 | Raw data instead of HTML | `--json` |
 
-Pass through any arguments the user gave this skill (`$ARGUMENTS`).
+Pass through any arguments the user gave this skill.
 
 ## Rules
 
@@ -52,11 +66,11 @@ Pass through any arguments the user gave this skill (`$ARGUMENTS`).
 
 ## After it runs
 
-Report in two or three lines: the output path (as a link), the one-line stats
-the CLI printed (events, tool calls, files, minutes, cost), and what was
-redacted. Then mention the ways to share it: drag the file onto Netlify Drop, attach it
-in Slack/Discord, or commit it to a GitHub Pages branch. `#e42` at the end of the
-URL opens the replay at event 42 and `?static` shows everything at once.
+Report in two or three lines: the output path, the one-line stats the CLI
+printed (events, tool calls, files, minutes, cost), and what was redacted. Then
+mention the ways to share it: drag the file onto Netlify Drop, attach it in Slack/Discord,
+or commit it to a GitHub Pages branch. `#e42` at the end of the URL opens the
+replay at event 42 and `?static` shows everything at once.
 
 If the command fails because Node is missing, say that agentreplay needs
 Node.js 18 or newer.

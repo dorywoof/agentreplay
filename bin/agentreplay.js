@@ -8,6 +8,7 @@ import { createRedactor } from '../src/redact.js';
 import { computeStats } from '../src/stats.js';
 import { loadPricing } from '../src/pricing.js';
 import { renderHtml } from '../src/render.js';
+import { installSkill, uninstallSkill } from '../src/install-skill.js';
 
 const HELP = `
 agentreplay — turn an AI coding session into a shareable replay
@@ -19,6 +20,11 @@ Usage
   agentreplay --pick 3           replay #3 from --list
   agentreplay --session <id>     replay the session whose id / file name matches
   agentreplay --agents           show supported agents and what was found
+  agentreplay install-skill      add a "replay" skill to every agent on this machine
+                                 (Claude Code, Codex, Gemini CLI, OpenCode, Copilot,
+                                 Cursor…). --project installs into the current repo,
+                                 --agent <name> limits it to one agent.
+  agentreplay uninstall-skill    remove it again
 
 Options
   -o, --out <file>      output HTML path (default: ./replay-<id>.html)
@@ -44,6 +50,8 @@ const { values: opts, positionals } = parseArgs({
     agents: { type: 'boolean' },
     pick: { type: 'string', short: 'p' },
     session: { type: 'string', short: 's' },
+    project: { type: 'boolean' },
+    force: { type: 'boolean' },
     'no-thinking': { type: 'boolean' },
     'no-redact': { type: 'boolean' },
     'keep-paths': { type: 'boolean' },
@@ -71,6 +79,22 @@ function ago(ms) {
 
 function main() {
   if (opts.help) return console.log(HELP);
+
+  if (positionals[0] === 'install-skill' || positionals[0] === 'uninstall-skill') {
+    const project = opts.project ? process.cwd() : null;
+    const results =
+      positionals[0] === 'install-skill'
+        ? installSkill({ project, only: opts.agent, force: opts.force })
+        : uninstallSkill({ project });
+    const done = results.filter((r) => r.status !== 'skipped');
+    for (const r of done) console.log(`${bold('✓')} ${r.agent.padEnd(20)} ${dim(r.status.padEnd(9))} ${r.file}`);
+    const skipped = results.filter((r) => r.status === 'skipped').map((r) => r.agent);
+    if (skipped.length) console.log(dim(`  not installed (agent not found): ${skipped.join(', ')}. Use --force to install anyway.`));
+    if (!done.length) console.log(positionals[0] === 'install-skill' ? 'Nothing installed.' : 'No agentreplay skill found to remove.');
+    else if (positionals[0] === 'install-skill') console.log(`\nRestart your agent, then ask it to ${bold('"make a replay of this session"')} (in Claude Code: ${bold('/agentreplay')}).`);
+    return;
+  }
+
   if (opts.agent && !PARSERS[opts.agent]) fail(`unknown agent "${opts.agent}" (one of: ${Object.keys(PARSERS).join(', ')})`);
 
   if (opts.agents) {

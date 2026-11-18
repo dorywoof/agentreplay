@@ -66,6 +66,30 @@ On older Claude Code versions, use two steps instead:
 
 Then type `/agentreplay:replay`, or just ask *"make a replay of this session"*. Claude runs the CLI for you, writes the HTML next to your project and tells you what was redacted. Arguments pass through, for example `/agentreplay:replay --list`.
 
+### As a skill in Codex, Gemini CLI, OpenCode, Copilot, Cursor…
+
+Most agents now read the open [Agent Skills](https://agentskills.io) format (`SKILL.md`). One command installs the replay skill into every agent it finds on your machine:
+
+```bash
+npx @dorywoof/agentreplay install-skill
+```
+
+| Agent | Installed to |
+|---|---|
+| Shared folder several agents read | `~/.agents/skills/agentreplay/` (always) |
+| Claude Code | `~/.claude/skills/agentreplay/` |
+| Codex | `~/.codex/skills/agentreplay/` |
+| Gemini CLI | `~/.gemini/skills/agentreplay/` |
+| Qwen Code | `~/.qwen/skills/agentreplay/` |
+| OpenCode | `~/.config/opencode/skills/agentreplay/` |
+| GitHub Copilot | `~/.copilot/skills/agentreplay/` |
+| Cursor | `~/.cursor/skills/agentreplay/` |
+| Windsurf, Amp, Goose | their own `skills/` folders |
+
+Folders are only written for agents that are installed (`--force` writes all of them). `--agent codex` limits it to one agent, `--project` installs into the current repo instead (`.agents/skills`, `.claude/skills`, …) so your whole team gets it, and `uninstall-skill` removes it again. Restart the agent afterwards, then ask it to *"make a replay of this session"*.
+
+> Skill folder locations differ between agents and versions. If your agent doesn't pick the skill up, copy [`skills/replay/SKILL.md`](skills/replay/SKILL.md) into the folder its docs name.
+
 ### Where sessions live
 
 Sessions are found automatically. You can also pass any file directly.
