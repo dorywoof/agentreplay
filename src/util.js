@@ -107,6 +107,19 @@ export function addUsage(session, model, u) {
     session.usage[k] += v;
     per[k] += v;
   }
+  trackRequest(session, u);
+}
+
+/**
+ * One API request: count it and remember the biggest prompt. Agents re-send the
+ * whole conversation on every request, so summed tokens grow quadratically —
+ * the peak prompt is the honest "how big was this conversation" number.
+ */
+export function trackRequest(session, u) {
+  const ctx = (Number(u.input) || 0) + (Number(u.cacheRead) || 0) + (Number(u.cacheWrite) || 0) + (Number(u.cacheWrite1h) || 0);
+  if (!ctx && !u.output) return;
+  session.requests = (session.requests || 0) + 1;
+  session.peakContext = Math.max(session.peakContext || 0, ctx);
 }
 
 /** Codex / OpenAI apply_patch envelope → diff hunks. */

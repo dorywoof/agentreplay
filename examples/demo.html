@@ -3,207 +3,272 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>Add a dark mode toggle to the todo app · Claude Code replay</title>
 <style>
 :root {
-  --bg: #f7f7f5; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e4e3df;
-  --accent: #d97745; --accent-ink: #ffffff; --user: #eef3ff; --user-line: #cfdcff;
-  --ok: #2f8a4e; --err: #c8412f; --add-bg: #e6f6ea; --add: #1f7a3c; --del-bg: #fdecea; --del: #b3261e;
-  --code-bg: #f1f0ec; --think: #8a8780; --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.04);
-  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  --bg: #fbfaf7; --ink: #1b1b19; --muted: #6c6a63; --faint: #a3a198; --rule: #e6e4dd; --soft: #f2f1ec;
+  --accent: #2a50d8; --add: #1a7f37; --add-bg: #e9f6ec; --del: #c4321f; --del-bg: #fcebe8; --warn: #c4321f;
+  --sans: "Inter", "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", "SF Mono", ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #141413; --panel: #1d1d1b; --ink: #ecebe6; --muted: #9b9a94; --line: #2f2e2b;
-    --user: #1e2638; --user-line: #2e3b57; --ok: #58c27d; --err: #ff7a66;
-    --add-bg: #14301e; --add: #7fdc9b; --del-bg: #3a1916; --del: #ff9a8c; --code-bg: #262522; --think: #8f8c84;
-    --shadow: none;
+    --bg: #111110; --ink: #ecebe5; --muted: #908e86; --faint: #5d5c56; --rule: #262522; --soft: #1a1a18;
+    --accent: #86a8ff; --add: #56d364; --add-bg: #12261a; --del: #ff7b72; --del-bg: #2d1514; --warn: #ff7b72;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #141413; --panel: #1d1d1b; --ink: #ecebe6; --muted: #9b9a94; --line: #2f2e2b;
-  --user: #1e2638; --user-line: #2e3b57; --ok: #58c27d; --err: #ff7a66;
-  --add-bg: #14301e; --add: #7fdc9b; --del-bg: #3a1916; --del: #ff9a8c; --code-bg: #262522; --think: #8f8c84;
-  --shadow: none;
+  --bg: #111110; --ink: #ecebe5; --muted: #908e86; --faint: #5d5c56; --rule: #262522; --soft: #1a1a18;
+  --accent: #86a8ff; --add: #56d364; --add-bg: #12261a; --del: #ff7b72; --del-bg: #2d1514; --warn: #ff7b72;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 var(--sans); }
-a { color: var(--accent); }
-code, pre { font-family: var(--mono); font-size: 13px; }
-.wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 120px; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body { font: 15px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration-color: var(--faint); text-underline-offset: 3px; }
+a:hover { text-decoration-color: currentColor; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+code, pre, .mono { font-family: var(--mono); }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 48px 24px 140px; }
 
-/* ---------- summary card ---------- */
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px; box-shadow: var(--shadow); }
-.card-top { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; color: var(--muted); font-size: 13px; }
-.badge { background: var(--accent); color: var(--accent-ink); font-weight: 600; padding: 2px 10px; border-radius: 99px; font-size: 12px; }
-.card h1 { font-size: 26px; line-height: 1.25; margin: 10px 0 18px; letter-spacing: -.01em; overflow-wrap: anywhere; }
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
-.tile { background: var(--bg); border-radius: 12px; padding: 10px 14px; }
-.tile b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
-.tile span { color: var(--muted); font-size: 12px; }
-.tile .add { color: var(--add); } .tile .del { color: var(--del); }
+/* ---------- header ---------- */
+.meta { font: 12px/1.4 var(--mono); color: var(--muted); letter-spacing: .02em; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.meta b { color: var(--ink); font-weight: 600; }
+h1 { font-size: clamp(26px, 4vw, 40px); line-height: 1.12; letter-spacing: -.025em; font-weight: 650; margin: 14px 0 32px; max-width: 28ch; overflow-wrap: anywhere; }
+.figures { display: flex; flex-wrap: wrap; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); }
+.fig { padding: 14px 28px 14px 0; margin-right: 28px; border-right: 1px solid var(--rule); min-width: 92px; }
+.fig:last-child { border-right: 0; margin-right: 0; }
+.fig .n { font: 500 22px/1.2 var(--mono); letter-spacing: -.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fig .l { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.fig .add { color: var(--add); } .fig .del { color: var(--del); }
 
 /* ---------- layout ---------- */
-.layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; margin-top: 20px; align-items: start; }
-@media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } .side { order: 2; } }
-.side { position: sticky; top: 16px; display: grid; gap: 14px; }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
-.panel h3 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-.files li, .toolbars li { list-style: none; display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 3px 0; }
-.files, .toolbars { margin: 0; padding: 0; }
-.side > * { min-width: 0; }
-.files .name { font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
-.files .name i { color: var(--muted); font-style: normal; }
-.files .n { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.bar { height: 6px; background: var(--accent); border-radius: 3px; opacity: .8; }
-.toolbars li { display: grid; grid-template-columns: minmax(0, 1.1fr) 1fr 32px; gap: 8px; align-items: center; }
-.toolbars .tn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.toolbars .tc { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
-.muted { color: var(--muted); }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 56px; margin-top: 40px; align-items: start; }
+@media (max-width: 920px) { .cols { grid-template-columns: minmax(0, 1fr); gap: 40px; } .side { order: 2; } }
+.side { position: sticky; top: 24px; font-size: 13px; }
+@media (max-width: 920px) { .side { position: static; } }
+.side section { padding: 14px 0 18px; border-top: 1px solid var(--rule); }
+.side section:first-child { border-top-color: var(--ink); }
+.side h2 { font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 12px; }
+.rows { list-style: none; margin: 0; padding: 0; }
+.rows li { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; }
+.rows .k { color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rows .v { font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rows .file { font-family: var(--mono); font-size: 12px; color: var(--ink); }
+.rows .file i { color: var(--faint); font-style: normal; }
+.rows .strong .k, .rows .strong .v { color: var(--ink); font-weight: 600; }
+.note { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 10px 0 0; }
+.bar { display: inline-block; height: 2px; background: var(--ink); vertical-align: middle; margin-right: 8px; opacity: .55; }
 
-/* ---------- feed ---------- */
-.feed { display: flex; flex-direction: column; gap: 10px; }
-.ev { animation: in .25s ease-out; scroll-margin: 80px; }
-@keyframes in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-.ev.user { align-self: flex-end; max-width: 85%; background: var(--user); border: 1px solid var(--user-line); border-radius: 14px 14px 4px 14px; padding: 10px 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.ev.assistant { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; overflow-wrap: anywhere; }
-.ev.assistant p { margin: 0 0 8px; } .ev.assistant p:last-child { margin: 0; }
-.ev.assistant pre { background: var(--code-bg); padding: 10px 12px; border-radius: 8px; overflow-x: auto; }
-.ev.assistant :not(pre) > code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
-.ev.thinking { color: var(--think); font-style: italic; font-size: 14px; padding: 2px 4px 2px 14px; border-left: 2px solid var(--line); white-space: pre-wrap; max-height: 7.5em; overflow: hidden; cursor: pointer; }
-.ev.thinking.open { max-height: none; }
-.ev.tool { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; font-size: 13px; }
-.ev.tool.err { border-color: var(--err); }
-.tool-head { display: flex; gap: 10px; align-items: center; padding: 8px 12px; cursor: pointer; user-select: none; }
-.tool-head .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
-.ev.tool.err .dot { background: var(--err); }
-.ev.tool.pending .dot { background: var(--muted); animation: pulse 1s infinite; }
-@keyframes pulse { 50% { opacity: .3; } }
-.tool-head .tname { font-weight: 600; flex: none; }
-.tool-head .tsum { color: var(--muted); font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
-.tool-head .tlines { font-family: var(--mono); font-size: 12px; flex: none; }
-.tlines .a { color: var(--add); } .tlines .d { color: var(--del); }
-.tool-body { display: none; border-top: 1px solid var(--line); padding: 10px 12px; }
-.ev.tool.open .tool-body { display: block; }
-.tool-body pre { margin: 0 0 8px; background: var(--code-bg); padding: 8px 10px; border-radius: 6px; overflow: auto; max-height: 360px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.tool-body .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 4px 0; }
-.tool-body .lbl.path { text-transform: none; letter-spacing: 0; font-family: var(--mono); overflow-wrap: anywhere; }
-.diff { font-family: var(--mono); font-size: 12px; border-radius: 6px; overflow: auto; max-height: 420px; margin-bottom: 8px; background: var(--code-bg); }
-.diff div { padding: 0 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* ---------- transcript ---------- */
+.log { min-width: 0; }
+.ev { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 0 16px; padding: 10px 0; scroll-margin: 120px; }
+.ev + .ev { border-top: 1px solid transparent; }
+.ev.turn { border-top: 1px solid var(--rule); margin-top: 14px; padding-top: 22px; }
+.ev.turn:first-child { border-top: 0; margin-top: 0; padding-top: 4px; }
+.t { font: 11px/22px var(--mono); color: var(--faint); font-variant-numeric: tabular-nums; text-align: right; }
+.who { font: 600 11px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 4px 0 8px; }
+.ev.new { animation: rise .28s ease-out; }
+@keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ev.new { animation: none; } }
+
+.user .body { font-size: 17px; line-height: 1.5; font-weight: 500; white-space: pre-wrap; overflow-wrap: anywhere; border-left: 2px solid var(--accent); padding-left: 14px; }
+.user .who { color: var(--accent); }
+.say .body { overflow-wrap: anywhere; max-width: 68ch; }
+.say .body p { margin: 0 0 10px; } .say .body p:last-child { margin-bottom: 0; }
+.say .body ul, .say .body ol { margin: 0 0 10px; padding-left: 20px; }
+.say .body pre { background: var(--soft); padding: 12px 14px; overflow-x: auto; font-size: 12.5px; line-height: 1.55; margin: 0 0 10px; border-left: 2px solid var(--rule); }
+.say .body :not(pre) > code { font-size: .88em; background: var(--soft); padding: 1px 5px; }
+.think .body { color: var(--muted); font-style: italic; font-size: 14px; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
+.think.open .body { display: block; }
+
+.tool { padding: 3px 0; }
+.tool .line { display: flex; align-items: baseline; gap: 10px; min-width: 0; cursor: pointer; font-size: 13.5px; padding: 3px 0; }
+.tool .line:hover .nm { text-decoration: underline; text-decoration-color: var(--faint); text-underline-offset: 3px; }
+.tool .g { font: 12px var(--mono); width: 12px; flex: none; color: var(--add); }
+.tool.err .g { color: var(--warn); }
+.tool .nm { font: 500 13px var(--mono); flex: none; }
+.tool .sum { color: var(--muted); font: 12.5px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.tool .dl { font: 12px var(--mono); flex: none; }
+.dl .a { color: var(--add); } .dl .d { color: var(--del); }
+.tool .detail { display: none; margin: 6px 0 8px 22px; border-left: 1px solid var(--rule); padding-left: 14px; }
+.tool.open .detail { display: block; }
+.detail .lbl { font: 600 10.5px var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--faint); margin: 10px 0 4px; }
+.detail .lbl:first-child { margin-top: 0; }
+.detail .path { font: 12px var(--mono); color: var(--muted); overflow-wrap: anywhere; margin-bottom: 6px; }
+.detail pre { margin: 0; background: var(--soft); padding: 10px 12px; font-size: 12px; line-height: 1.55; overflow: auto; max-height: 340px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.diff { font: 12px/1.55 var(--mono); overflow: auto; max-height: 420px; background: var(--soft); }
+.diff div { padding: 0 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .diff .a { background: var(--add-bg); color: var(--add); }
 .diff .d { background: var(--del-bg); color: var(--del); }
 .diff .f { color: var(--muted); padding-top: 6px; }
-.ev.edit.flash { box-shadow: 0 0 0 2px var(--add); transition: box-shadow .6s; }
+@media (max-width: 600px) {
+  .wrap { padding: 28px 16px 140px; }
+  .ev { grid-template-columns: minmax(0, 1fr); }
+  .t { text-align: left; line-height: 1; margin-bottom: 2px; }
+  .ev:not(.turn) .t { display: none; }
+  .fig { padding-right: 18px; margin-right: 18px; min-width: 0; }
+  .fig .n { font-size: 18px; }
+}
 
 /* ---------- player ---------- */
-.player { position: fixed; left: 0; right: 0; bottom: 0; background: color-mix(in srgb, var(--panel) 92%, transparent); backdrop-filter: blur(10px); border-top: 1px solid var(--line); z-index: 10; }
-.player-in { max-width: 1180px; margin: 0 auto; padding: 10px 16px; display: flex; gap: 12px; align-items: center; }
-.btn { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 99px; width: 40px; height: 40px; font-size: 16px; cursor: pointer; flex: none; display: grid; place-items: center; }
-.btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); width: auto; padding: 0 12px; height: 32px; font-size: 13px; }
-.track { position: relative; flex: 1; height: 28px; cursor: pointer; min-width: 60px; }
-.track .rail { position: absolute; top: 12px; left: 0; right: 0; height: 4px; background: var(--line); border-radius: 2px; }
-.track .fill { position: absolute; top: 12px; left: 0; height: 4px; background: var(--accent); border-radius: 2px; }
-.track .mk { position: absolute; top: 8px; width: 2px; height: 12px; border-radius: 1px; opacity: .85; }
-.mk.e { background: var(--add); } .mk.x { background: var(--err); } .mk.u { background: #4f7cff; }
-.clock { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); min-width: 92px; text-align: right; }
-select.btn { appearance: none; text-align: center; }
-@media (max-width: 600px) { .clock { display: none; } .hide-sm { display: none; } .card h1 { font-size: 21px; } }
+.player { position: fixed; inset: auto 0 0 0; background: var(--bg); border-top: 1px solid var(--rule); z-index: 10; }
+.pin { max-width: 1120px; margin: 0 auto; padding: 12px 24px; display: flex; align-items: center; gap: 18px; }
+.play { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--ink); flex: none; }
+.play:hover { background: var(--ink); color: var(--bg); }
+.play svg { width: 14px; height: 14px; fill: currentColor; }
+.track { position: relative; flex: 1; height: 26px; cursor: pointer; min-width: 80px; touch-action: none; }
+.track .rail { position: absolute; left: 0; right: 0; top: 12px; height: 2px; background: var(--rule); }
+.track .fill { position: absolute; left: 0; top: 12px; height: 2px; background: var(--ink); }
+.track .head { position: absolute; top: 8px; width: 2px; height: 10px; background: var(--ink); transform: translateX(-1px); }
+.track .mk { position: absolute; top: 18px; width: 1px; height: 5px; background: var(--faint); }
+.mk.u { background: var(--accent); height: 7px; top: 17px; width: 2px; }
+.mk.x { background: var(--warn); }
+.mk.e { background: var(--add); }
+.count { font: 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 64px; text-align: right; }
+.speeds { display: flex; font: 12px var(--mono); border: 1px solid var(--rule); }
+.speeds button { padding: 5px 8px; color: var(--muted); border-left: 1px solid var(--rule); }
+.speeds button:first-child { border-left: 0; }
+.speeds button[aria-pressed="true"] { color: var(--bg); background: var(--ink); }
+.speeds button:not([aria-pressed="true"]):hover { color: var(--ink); }
+.txt { font: 12px var(--mono); color: var(--muted); white-space: nowrap; }
+.txt:hover { color: var(--ink); }
+.icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.6; display: block; }
+.icon { color: var(--muted); } .icon:hover { color: var(--ink); }
+@media (max-width: 700px) {
+  .pin { padding: 10px 16px; gap: 12px; }
+  .speeds button:not([aria-pressed="true"]) { display: none; }
+  .speeds button { border-left: 0; }
+  .count, .hide-sm { display: none; }
+}
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
-.redacted { font-size: 12px; color: var(--muted); margin-top: 12px; }
+footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--rule); font: 12px/1.6 var(--mono); color: var(--muted); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <section class="card" id="card"></section>
-  <div class="layout">
-    <main class="feed" id="feed" aria-live="polite"></main>
+  <header id="head"></header>
+  <div class="cols">
+    <main class="log" id="log" aria-live="polite"></main>
     <aside class="side" id="side"></aside>
   </div>
   <footer id="foot"></footer>
 </div>
 <div class="player">
-  <div class="player-in">
-    <button class="btn" id="play" title="Play / pause (space)" aria-label="Play">▶</button>
-    <div class="track" id="track" title="Seek"><div class="rail"></div><div class="fill" id="fill"></div></div>
-    <span class="clock" id="clock"></span>
-    <select class="btn ghost" id="speed" title="Speed" aria-label="Playback speed">
-      <option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="10">10×</option>
-    </select>
-    <button class="btn ghost hide-sm" id="all" title="Show everything (end)">Show all</button>
-    <button class="btn ghost hide-sm" id="theme" title="Toggle theme" aria-label="Toggle theme">◐</button>
+  <div class="pin">
+    <button class="play" id="play"></button>
+    <div class="track" id="track"><div class="rail"></div><div class="fill" id="fill"></div><div class="head" id="phead"></div></div>
+    <span class="count" id="count"></span>
+    <div class="speeds" id="speeds" role="group"></div>
+    <button class="txt hide-sm" id="all"></button>
+    <button class="icon" id="theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg></button>
   </div>
 </div>
-<script id="data" type="application/json">{"agent":"Claude Code","title":"Add a dark mode toggle to the todo app","models":["claude-opus-5-5"],"branch":"feat/dark-mode","cwd":"/home/dev/todo-app","events":[{"kind":"user","t":1794492122000,"text":"Add a dark mode toggle to the header. It should remember the choice and respect the OS setting by default."},{"kind":"assistant","t":1794492126000,"text":"I'll look at how the header and styles are set up first."},{"kind":"tool","t":1794492128000,"name":"Glob","summary":"src/**/*.{tsx,css}","input":"{\n  \"pattern\": \"src/**/*.{tsx,css}\"\n}","output":"src/App.tsx\nsrc/components/Header.tsx\nsrc/components/TodoList.tsx\nsrc/index.css\nsrc/main.tsx","isError":false,"endT":1794492129500},{"kind":"tool","t":1794492131500,"name":"Read","summary":"/home/dev/todo-app/src/components/Header.tsx","input":"{\n  \"file_path\": \"/home/dev/todo-app/src/components/Header.tsx\"\n}","output":"export function Header() {\n  return (\n    \u003cheader className=\"header\">\n      \u003ch1>Todos\u003c/h1>\n    \u003c/header>\n  );\n}","isError":false,"endT":1794492133000},{"kind":"tool","t":1794492135000,"name":"Read","summary":"/home/dev/todo-app/src/index.css","input":"{\n  \"file_path\": \"/home/dev/todo-app/src/index.css\"\n}","output":"body {\n  background: #fff;\n  color: #111;\n}\n.header { display: flex; align-items: center; }","isError":false,"endT":1794492136500},{"kind":"assistant","t":1794492141500,"text":"Colors are hard-coded in `index.css`. Plan:\n\n1. Move colors into CSS variables with a `[data-theme=\"dark\"]` override\n2. Add a `useTheme` hook that reads `localStorage` and falls back to `prefers-color-scheme`\n3. Put a toggle button in `Header`"},{"kind":"tool","t":1794492147500,"name":"Edit","summary":"/home/dev/todo-app/src/index.css","input":null,"output":"The file src/index.css has been updated.","isError":false,"file":"/home/dev/todo-app/src/index.css","diff":[{"old":"body {\n  background: #fff;\n  color: #111;\n}","new":":root {\n  --bg: #ffffff;\n  --fg: #111111;\n}\n:root[data-theme=\"dark\"] {\n  --bg: #16161a;\n  --fg: #ececf1;\n}\nbody {\n  background: var(--bg);\n  color: var(--fg);\n  transition: background .2s, color .2s;\n}"}],"lines":{"added":11,"removed":2},"endT":1794492149000},{"kind":"tool","t":1794492157000,"name":"Write","summary":"/home/dev/todo-app/src/hooks/useTheme.ts","input":null,"output":"File created successfully at: src/hooks/useTheme.ts","isError":false,"file":"/home/dev/todo-app/src/hooks/useTheme.ts","diff":[{"old":"","new":"import { useEffect, useState } from 'react';\n\ntype Theme = 'light' | 'dark';\n\nfunction initial(): Theme {\n  const saved = localStorage.getItem('theme');\n  if (saved === 'light' || saved === 'dark') return saved;\n  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';\n}\n\nexport function useTheme() {\n  const [theme, setTheme] = useState\u003cTheme>(initial);\n  useEffect(() => {\n    document.documentElement.dataset.theme = theme;\n    localStorage.setItem('theme', theme);\n  }, [theme]);\n  const toggle = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));\n  return { theme, toggle };\n}"}],"created":true,"lines":{"added":19,"removed":0},"endT":1794492158500},{"kind":"tool","t":1794492163500,"name":"Edit","summary":"/home/dev/todo-app/src/components/Header.tsx","input":null,"output":"The file src/components/Header.tsx has been updated.","isError":false,"file":"/home/dev/todo-app/src/components/Header.tsx","diff":[{"old":"export function Header() {\n  return (\n    \u003cheader className=\"header\">\n      \u003ch1>Todos\u003c/h1>\n    \u003c/header>","new":"import { useTheme } from '../hooks/useTheme';\n\nexport function Header() {\n  const { theme, toggle } = useTheme();\n  return (\n    \u003cheader className=\"header\">\n      \u003ch1>Todos\u003c/h1>\n      \u003cbutton onClick={toggle} aria-label=\"Toggle dark mode\">\n        {theme === 'dark' ? '☀️' : '🌙'}\n      \u003c/button>\n    \u003c/header>"}],"lines":{"added":6,"removed":0},"endT":1794492165000},{"kind":"assistant","t":1794492167000,"text":"Now let me run the tests."},{"kind":"tool","t":1794492169000,"name":"Bash","summary":"Run the test suite","input":"{\n  \"command\": \"npm test -- --run\",\n  \"description\": \"Run the test suite\"\n}","output":"FAIL src/components/Header.test.tsx\n  ✕ renders the title (12 ms)\n    ReferenceError: matchMedia is not defined\n      at initial (src/hooks/useTheme.ts:8:10)\n\nTests: 1 failed, 6 passed, 7 total","isError":true,"endT":1794492178000},{"kind":"thinking","t":1794492181000,"text":"jsdom does not implement matchMedia. Guard it in the hook so it also works during SSR, rather than only mocking it in tests."},{"kind":"tool","t":1794492185000,"name":"Edit","summary":"/home/dev/todo-app/src/hooks/useTheme.ts","input":null,"output":"The file src/hooks/useTheme.ts has been updated.","isError":false,"file":"/home/dev/todo-app/src/hooks/useTheme.ts","diff":[{"old":"  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';","new":"  const prefersDark = typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;\n  return prefersDark ? 'dark' : 'light';"}],"lines":{"added":2,"removed":1},"endT":1794492186500},{"kind":"tool","t":1794492192500,"name":"Write","summary":"/home/dev/todo-app/src/hooks/useTheme.test.ts","input":null,"output":"File created successfully at: src/hooks/useTheme.test.ts","isError":false,"file":"/home/dev/todo-app/src/hooks/useTheme.test.ts","diff":[{"old":"","new":"import { renderHook, act } from '@testing-library/react';\nimport { useTheme } from './useTheme';\n\ntest('toggles and persists the theme', () => {\n  const { result } = renderHook(() => useTheme());\n  act(() => result.current.toggle());\n  expect(document.documentElement.dataset.theme).toBe('dark');\n  expect(localStorage.getItem('theme')).toBe('dark');\n});"}],"created":true,"lines":{"added":9,"removed":0},"endT":1794492194000},{"kind":"tool","t":1794492196000,"name":"Bash","summary":"Run the test suite again","input":"{\n  \"command\": \"npm test -- --run\",\n  \"description\": \"Run the test suite again\"\n}","output":"✓ src/hooks/useTheme.test.ts (1)\n✓ src/components/Header.test.tsx (3)\n✓ src/components/TodoList.test.tsx (4)\n\nTests: 8 passed, 8 total","isError":false,"endT":1794492204000},{"kind":"assistant","t":1794492207000,"text":"Done. The header now has a 🌙/☀️ toggle:\n\n- Colors live in CSS variables, with a `[data-theme=\"dark\"]` override\n- `useTheme` remembers the choice in `localStorage` and defaults to the OS setting\n- Guarded `matchMedia` so it works in tests and SSR, and added a test for the hook\n\nAll 8 tests pass."}],"stats":{"start":1794492122000,"end":1794492207000,"wallMs":85000,"activeMs":85000,"prompts":1,"toolCalls":10,"errors":1,"byTool":[["Edit",3],["Read",2],["Write",2],["Bash",2],["Glob",1]],"files":[{"file":"/home/dev/todo-app/src/hooks/useTheme.ts","added":21,"removed":1,"edits":2,"created":true},{"file":"/home/dev/todo-app/src/index.css","added":11,"removed":2,"edits":1,"created":false},{"file":"/home/dev/todo-app/src/hooks/useTheme.test.ts","added":9,"removed":0,"edits":1,"created":true},{"file":"/home/dev/todo-app/src/components/Header.tsx","added":6,"removed":0,"edits":1,"created":false}],"linesAdded":47,"linesRemoved":3,"tokens":{"input":56,"output":2330,"cacheRead":363000,"cacheWrite":32200,"total":397586},"cost":0.280424,"costReported":false,"timesSynthetic":false},"redactions":{},"generator":{"name":"agentreplay","version":"0.2.0","url":"https://github.com/dorywoof/agentreplay#readme"}}</script>
+<script id="data" type="application/json">{"agent":"Claude Code","title":"Add a dark mode toggle to the todo app","models":["claude-opus-5-5"],"branch":"feat/dark-mode","cwd":"/home/dev/todo-app","events":[{"kind":"user","t":1794492122000,"text":"Add a dark mode toggle to the header. It should remember the choice and respect the OS setting by default."},{"kind":"assistant","t":1794492126000,"text":"I'll look at how the header and styles are set up first."},{"kind":"tool","t":1794492128000,"name":"Glob","summary":"src/**/*.{tsx,css}","input":"{\n  \"pattern\": \"src/**/*.{tsx,css}\"\n}","output":"src/App.tsx\nsrc/components/Header.tsx\nsrc/components/TodoList.tsx\nsrc/index.css\nsrc/main.tsx","isError":false,"endT":1794492129500},{"kind":"tool","t":1794492131500,"name":"Read","summary":"/home/dev/todo-app/src/components/Header.tsx","input":"{\n  \"file_path\": \"/home/dev/todo-app/src/components/Header.tsx\"\n}","output":"export function Header() {\n  return (\n    \u003cheader className=\"header\">\n      \u003ch1>Todos\u003c/h1>\n    \u003c/header>\n  );\n}","isError":false,"endT":1794492133000},{"kind":"tool","t":1794492135000,"name":"Read","summary":"/home/dev/todo-app/src/index.css","input":"{\n  \"file_path\": \"/home/dev/todo-app/src/index.css\"\n}","output":"body {\n  background: #fff;\n  color: #111;\n}\n.header { display: flex; align-items: center; }","isError":false,"endT":1794492136500},{"kind":"assistant","t":1794492141500,"text":"Colors are hard-coded in `index.css`. Plan:\n\n1. Move colors into CSS variables with a `[data-theme=\"dark\"]` override\n2. Add a `useTheme` hook that reads `localStorage` and falls back to `prefers-color-scheme`\n3. Put a toggle button in `Header`"},{"kind":"tool","t":1794492147500,"name":"Edit","summary":"/home/dev/todo-app/src/index.css","input":null,"output":"The file src/index.css has been updated.","isError":false,"file":"/home/dev/todo-app/src/index.css","diff":[{"old":"body {\n  background: #fff;\n  color: #111;\n}","new":":root {\n  --bg: #ffffff;\n  --fg: #111111;\n}\n:root[data-theme=\"dark\"] {\n  --bg: #16161a;\n  --fg: #ececf1;\n}\nbody {\n  background: var(--bg);\n  color: var(--fg);\n  transition: background .2s, color .2s;\n}"}],"lines":{"added":11,"removed":2},"endT":1794492149000},{"kind":"tool","t":1794492157000,"name":"Write","summary":"/home/dev/todo-app/src/hooks/useTheme.ts","input":null,"output":"File created successfully at: src/hooks/useTheme.ts","isError":false,"file":"/home/dev/todo-app/src/hooks/useTheme.ts","diff":[{"old":"","new":"import { useEffect, useState } from 'react';\n\ntype Theme = 'light' | 'dark';\n\nfunction initial(): Theme {\n  const saved = localStorage.getItem('theme');\n  if (saved === 'light' || saved === 'dark') return saved;\n  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';\n}\n\nexport function useTheme() {\n  const [theme, setTheme] = useState\u003cTheme>(initial);\n  useEffect(() => {\n    document.documentElement.dataset.theme = theme;\n    localStorage.setItem('theme', theme);\n  }, [theme]);\n  const toggle = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));\n  return { theme, toggle };\n}"}],"created":true,"lines":{"added":19,"removed":0},"endT":1794492158500},{"kind":"tool","t":1794492163500,"name":"Edit","summary":"/home/dev/todo-app/src/components/Header.tsx","input":null,"output":"The file src/components/Header.tsx has been updated.","isError":false,"file":"/home/dev/todo-app/src/components/Header.tsx","diff":[{"old":"export function Header() {\n  return (\n    \u003cheader className=\"header\">\n      \u003ch1>Todos\u003c/h1>\n    \u003c/header>","new":"import { useTheme } from '../hooks/useTheme';\n\nexport function Header() {\n  const { theme, toggle } = useTheme();\n  return (\n    \u003cheader className=\"header\">\n      \u003ch1>Todos\u003c/h1>\n      \u003cbutton onClick={toggle} aria-label=\"Toggle dark mode\">\n        {theme === 'dark' ? '☀️' : '🌙'}\n      \u003c/button>\n    \u003c/header>"}],"lines":{"added":6,"removed":0},"endT":1794492165000},{"kind":"assistant","t":1794492167000,"text":"Now let me run the tests."},{"kind":"tool","t":1794492169000,"name":"Bash","summary":"Run the test suite","input":"{\n  \"command\": \"npm test -- --run\",\n  \"description\": \"Run the test suite\"\n}","output":"FAIL src/components/Header.test.tsx\n  ✕ renders the title (12 ms)\n    ReferenceError: matchMedia is not defined\n      at initial (src/hooks/useTheme.ts:8:10)\n\nTests: 1 failed, 6 passed, 7 total","isError":true,"endT":1794492178000},{"kind":"thinking","t":1794492181000,"text":"jsdom does not implement matchMedia. Guard it in the hook so it also works during SSR, rather than only mocking it in tests."},{"kind":"tool","t":1794492185000,"name":"Edit","summary":"/home/dev/todo-app/src/hooks/useTheme.ts","input":null,"output":"The file src/hooks/useTheme.ts has been updated.","isError":false,"file":"/home/dev/todo-app/src/hooks/useTheme.ts","diff":[{"old":"  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';","new":"  const prefersDark = typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches;\n  return prefersDark ? 'dark' : 'light';"}],"lines":{"added":2,"removed":1},"endT":1794492186500},{"kind":"tool","t":1794492192500,"name":"Write","summary":"/home/dev/todo-app/src/hooks/useTheme.test.ts","input":null,"output":"File created successfully at: src/hooks/useTheme.test.ts","isError":false,"file":"/home/dev/todo-app/src/hooks/useTheme.test.ts","diff":[{"old":"","new":"import { renderHook, act } from '@testing-library/react';\nimport { useTheme } from './useTheme';\n\ntest('toggles and persists the theme', () => {\n  const { result } = renderHook(() => useTheme());\n  act(() => result.current.toggle());\n  expect(document.documentElement.dataset.theme).toBe('dark');\n  expect(localStorage.getItem('theme')).toBe('dark');\n});"}],"created":true,"lines":{"added":9,"removed":0},"endT":1794492194000},{"kind":"tool","t":1794492196000,"name":"Bash","summary":"Run the test suite again","input":"{\n  \"command\": \"npm test -- --run\",\n  \"description\": \"Run the test suite again\"\n}","output":"✓ src/hooks/useTheme.test.ts (1)\n✓ src/components/Header.test.tsx (3)\n✓ src/components/TodoList.test.tsx (4)\n\nTests: 8 passed, 8 total","isError":false,"endT":1794492204000},{"kind":"assistant","t":1794492207000,"text":"Done. The header now has a 🌙/☀️ toggle:\n\n- Colors live in CSS variables, with a `[data-theme=\"dark\"]` override\n- `useTheme` remembers the choice in `localStorage` and defaults to the OS setting\n- Guarded `matchMedia` so it works in tests and SSR, and added a test for the hook\n\nAll 8 tests pass."}],"stats":{"start":1794492122000,"end":1794492207000,"wallMs":85000,"activeMs":85000,"prompts":1,"toolCalls":10,"errors":1,"byTool":[["Edit",3],["Read",2],["Write",2],["Bash",2],["Glob",1]],"files":[{"file":"/home/dev/todo-app/src/hooks/useTheme.ts","added":21,"removed":1,"edits":2,"created":true},{"file":"/home/dev/todo-app/src/index.css","added":11,"removed":2,"edits":1,"created":false},{"file":"/home/dev/todo-app/src/hooks/useTheme.test.ts","added":9,"removed":0,"edits":1,"created":true},{"file":"/home/dev/todo-app/src/components/Header.tsx","added":6,"removed":0,"edits":1,"created":false}],"linesAdded":47,"linesRemoved":3,"tokens":{"input":56,"output":2330,"cacheRead":363000,"cacheWrite":32200,"total":397586,"peakContext":34303,"requests":15},"cost":0.280424,"costReported":false,"timesSynthetic":false},"redactions":{},"generator":{"name":"agentreplay","version":"0.4.0","url":"https://github.com/dorywoof/agentreplay#readme"}}</script>
 <script>
 (() => {
   const D = JSON.parse(document.getElementById('data').textContent);
   const S = D.stats;
   const $ = (id) => document.getElementById(id);
+
+  /* ---------- language ---------- */
+  const I18N = {
+    en: { you: 'You', thinking: 'Thinking', activeTime: 'active', prompts: ['prompt', 'prompts'], toolCalls: 'tool calls', filesChanged: 'files changed', lines: 'lines', peak: 'largest prompt', cost: 'cost', estCost: 'est. API cost', files: 'Files', tools: 'Tools', tokens: 'Tokens', output: 'Output', newInput: 'New input', cacheRead: 'Read from cache', cacheWrite: 'Written to cache', requests: 'Requests', totalProcessed: 'Total processed', failed: 'Failed tool calls', tokenNote: 'Every request re-sends the whole conversation, so the total counts the same context again and again. {pct} of it came from cache. The largest single prompt was {peak}.', costNote: 'Estimate at public API list prices.', input: 'Input', error: 'Error', result: 'Output', showAll: 'Show all', play: 'Play', pause: 'Pause', replay: 'Replay from start', theme: 'Switch theme', speed: 'Speed', more: '+{n} more', madeWith: 'Made with', redacted: 'Removed before sharing: {list}', untitled: 'Untitled session', seek: 'Timeline', of: 'of', branch: 'branch' },
+    tr: { you: 'Sen', thinking: 'Düşünüyor', activeTime: 'aktif süre', prompts: ['mesaj', 'mesaj'], toolCalls: 'araç çağrısı', filesChanged: 'dosya değişti', lines: 'satır', peak: 'en büyük istem', cost: 'maliyet', estCost: 'tahmini API maliyeti', files: 'Dosyalar', tools: 'Araçlar', tokens: 'Token', output: 'Çıktı', newInput: 'Yeni girdi', cacheRead: 'Önbellekten okunan', cacheWrite: 'Önbelleğe yazılan', requests: 'API isteği', totalProcessed: 'Toplam işlenen', failed: 'Başarısız araç çağrısı', tokenNote: 'Her istekte konuşmanın tamamı yeniden gönderilir, bu yüzden toplam aynı içeriği defalarca sayar. Bunun {pct} kadarı önbellekten geldi. Tek seferdeki en büyük istem {peak} idi.', costNote: 'Herkese açık API liste fiyatlarına göre tahmin.', input: 'Girdi', error: 'Hata', result: 'Çıktı', showAll: 'Tümünü göster', play: 'Oynat', pause: 'Duraklat', replay: 'Baştan oynat', theme: 'Temayı değiştir', speed: 'Hız', more: '+{n} tane daha', madeWith: 'Şununla yapıldı:', redacted: 'Paylaşmadan önce kaldırıldı: {list}', untitled: 'Başlıksız oturum', seek: 'Zaman çizelgesi', of: '/', branch: 'dal' },
+    es: { you: 'Tú', thinking: 'Pensando', activeTime: 'activo', prompts: ['instrucción', 'instrucciones'], toolCalls: 'llamadas a herramientas', filesChanged: 'archivos cambiados', lines: 'líneas', peak: 'mayor prompt', cost: 'coste', estCost: 'coste API estimado', files: 'Archivos', tools: 'Herramientas', tokens: 'Tokens', output: 'Salida', newInput: 'Entrada nueva', cacheRead: 'Leído de caché', cacheWrite: 'Escrito en caché', requests: 'Peticiones', totalProcessed: 'Total procesado', failed: 'Llamadas fallidas', tokenNote: 'Cada petición reenvía toda la conversación, así que el total cuenta el mismo contexto una y otra vez. El {pct} vino de la caché. El prompt más grande fue de {peak}.', costNote: 'Estimación con precios de lista de la API.', input: 'Entrada', error: 'Error', result: 'Salida', showAll: 'Ver todo', play: 'Reproducir', pause: 'Pausa', replay: 'Reproducir desde el inicio', theme: 'Cambiar tema', speed: 'Velocidad', more: '+{n} más', madeWith: 'Hecho con', redacted: 'Eliminado antes de compartir: {list}', untitled: 'Sesión sin título', seek: 'Línea de tiempo', of: 'de', branch: 'rama' },
+    de: { you: 'Du', thinking: 'Denkt nach', activeTime: 'aktiv', prompts: ['Prompt', 'Prompts'], toolCalls: 'Tool-Aufrufe', filesChanged: 'Dateien geändert', lines: 'Zeilen', peak: 'größter Prompt', cost: 'Kosten', estCost: 'geschätzte API-Kosten', files: 'Dateien', tools: 'Tools', tokens: 'Tokens', output: 'Ausgabe', newInput: 'Neue Eingabe', cacheRead: 'Aus Cache gelesen', cacheWrite: 'In Cache geschrieben', requests: 'Anfragen', totalProcessed: 'Insgesamt verarbeitet', failed: 'Fehlgeschlagene Aufrufe', tokenNote: 'Jede Anfrage sendet das ganze Gespräch erneut, daher zählt die Summe denselben Kontext immer wieder. {pct} davon kamen aus dem Cache. Der größte einzelne Prompt hatte {peak}.', costNote: 'Schätzung nach öffentlichen API-Listenpreisen.', input: 'Eingabe', error: 'Fehler', result: 'Ausgabe', showAll: 'Alles zeigen', play: 'Abspielen', pause: 'Pause', replay: 'Von vorn abspielen', theme: 'Design wechseln', speed: 'Tempo', more: '+{n} weitere', madeWith: 'Erstellt mit', redacted: 'Vor dem Teilen entfernt: {list}', untitled: 'Unbenannte Sitzung', seek: 'Zeitleiste', of: 'von', branch: 'Branch' },
+    fr: { you: 'Vous', thinking: 'Réflexion', activeTime: 'actif', prompts: ['prompt', 'prompts'], toolCalls: 'appels d’outils', filesChanged: 'fichiers modifiés', lines: 'lignes', peak: 'plus grand prompt', cost: 'coût', estCost: 'coût API estimé', files: 'Fichiers', tools: 'Outils', tokens: 'Tokens', output: 'Sortie', newInput: 'Nouvelle entrée', cacheRead: 'Lu depuis le cache', cacheWrite: 'Écrit en cache', requests: 'Requêtes', totalProcessed: 'Total traité', failed: 'Appels échoués', tokenNote: 'Chaque requête renvoie toute la conversation : le total compte donc le même contexte encore et encore. {pct} provenait du cache. Le plus grand prompt faisait {peak}.', costNote: 'Estimation aux prix publics de l’API.', input: 'Entrée', error: 'Erreur', result: 'Sortie', showAll: 'Tout afficher', play: 'Lire', pause: 'Pause', replay: 'Rejouer depuis le début', theme: 'Changer de thème', speed: 'Vitesse', more: '+{n} autres', madeWith: 'Fait avec', redacted: 'Retiré avant partage : {list}', untitled: 'Session sans titre', seek: 'Chronologie', of: 'sur', branch: 'branche' },
+    pt: { you: 'Você', thinking: 'Pensando', activeTime: 'ativo', prompts: ['prompt', 'prompts'], toolCalls: 'chamadas de ferramentas', filesChanged: 'arquivos alterados', lines: 'linhas', peak: 'maior prompt', cost: 'custo', estCost: 'custo de API estimado', files: 'Arquivos', tools: 'Ferramentas', tokens: 'Tokens', output: 'Saída', newInput: 'Entrada nova', cacheRead: 'Lido do cache', cacheWrite: 'Gravado no cache', requests: 'Requisições', totalProcessed: 'Total processado', failed: 'Chamadas com falha', tokenNote: 'Cada requisição reenvia a conversa inteira, então o total conta o mesmo contexto várias vezes. {pct} veio do cache. O maior prompt teve {peak}.', costNote: 'Estimativa com preços públicos da API.', input: 'Entrada', error: 'Erro', result: 'Saída', showAll: 'Mostrar tudo', play: 'Reproduzir', pause: 'Pausar', replay: 'Reproduzir do início', theme: 'Mudar tema', speed: 'Velocidade', more: '+{n} mais', madeWith: 'Feito com', redacted: 'Removido antes de compartilhar: {list}', untitled: 'Sessão sem título', seek: 'Linha do tempo', of: 'de', branch: 'branch' },
+    it: { you: 'Tu', thinking: 'Ragionamento', activeTime: 'attivo', prompts: ['prompt', 'prompt'], toolCalls: 'chiamate a strumenti', filesChanged: 'file modificati', lines: 'righe', peak: 'prompt più grande', cost: 'costo', estCost: 'costo API stimato', files: 'File', tools: 'Strumenti', tokens: 'Token', output: 'Output', newInput: 'Input nuovo', cacheRead: 'Letto dalla cache', cacheWrite: 'Scritto in cache', requests: 'Richieste', totalProcessed: 'Totale elaborato', failed: 'Chiamate fallite', tokenNote: 'Ogni richiesta reinvia l’intera conversazione, quindi il totale conta lo stesso contesto più volte. Il {pct} proveniva dalla cache. Il prompt più grande era di {peak}.', costNote: 'Stima ai prezzi di listino dell’API.', input: 'Input', error: 'Errore', result: 'Output', showAll: 'Mostra tutto', play: 'Riproduci', pause: 'Pausa', replay: 'Riproduci dall’inizio', theme: 'Cambia tema', speed: 'Velocità', more: '+{n} altri', madeWith: 'Creato con', redacted: 'Rimosso prima della condivisione: {list}', untitled: 'Sessione senza titolo', seek: 'Timeline', of: 'di', branch: 'branch' },
+    ru: { you: 'Вы', thinking: 'Размышление', activeTime: 'активно', prompts: ['запрос', 'запросов'], toolCalls: 'вызовов инструментов', filesChanged: 'файлов изменено', lines: 'строк', peak: 'крупнейший промпт', cost: 'стоимость', estCost: 'оценка стоимости API', files: 'Файлы', tools: 'Инструменты', tokens: 'Токены', output: 'Вывод', newInput: 'Новый ввод', cacheRead: 'Из кэша', cacheWrite: 'Записано в кэш', requests: 'Запросы к API', totalProcessed: 'Всего обработано', failed: 'Неудачные вызовы', tokenNote: 'Каждый запрос заново отправляет весь диалог, поэтому сумма много раз считает один и тот же контекст. {pct} пришло из кэша. Самый большой промпт — {peak}.', costNote: 'Оценка по публичным ценам API.', input: 'Ввод', error: 'Ошибка', result: 'Вывод', showAll: 'Показать всё', play: 'Воспроизвести', pause: 'Пауза', replay: 'С начала', theme: 'Сменить тему', speed: 'Скорость', more: 'ещё {n}', madeWith: 'Сделано с помощью', redacted: 'Удалено перед публикацией: {list}', untitled: 'Сессия без названия', seek: 'Шкала времени', of: 'из', branch: 'ветка' },
+    ja: { you: 'あなた', thinking: '思考中', activeTime: '作業時間', prompts: ['プロンプト', 'プロンプト'], toolCalls: 'ツール呼び出し', filesChanged: '変更ファイル', lines: '行', peak: '最大プロンプト', cost: 'コスト', estCost: 'API 推定コスト', files: 'ファイル', tools: 'ツール', tokens: 'トークン', output: '出力', newInput: '新規入力', cacheRead: 'キャッシュ読込', cacheWrite: 'キャッシュ書込', requests: 'リクエスト数', totalProcessed: '処理合計', failed: '失敗した呼び出し', tokenNote: 'リクエストごとに会話全体が再送されるため、合計には同じ文脈が何度も含まれます。そのうち {pct} はキャッシュからでした。1 回あたりの最大プロンプトは {peak} です。', costNote: '公開 API 価格による推定です。', input: '入力', error: 'エラー', result: '出力', showAll: 'すべて表示', play: '再生', pause: '一時停止', replay: '最初から再生', theme: 'テーマ切替', speed: '速度', more: 'ほか {n} 件', madeWith: '作成：', redacted: '共有前に削除：{list}', untitled: '無題のセッション', seek: 'タイムライン', of: '/', branch: 'ブランチ' },
+    zh: { you: '你', thinking: '思考中', activeTime: '活跃时长', prompts: ['条提示', '条提示'], toolCalls: '次工具调用', filesChanged: '个文件改动', lines: '行', peak: '最大提示', cost: '费用', estCost: '估算 API 费用', files: '文件', tools: '工具', tokens: 'Token', output: '输出', newInput: '新输入', cacheRead: '缓存读取', cacheWrite: '缓存写入', requests: '请求次数', totalProcessed: '累计处理', failed: '失败的调用', tokenNote: '每次请求都会重新发送整个对话，所以累计值会反复计算同样的上下文。其中 {pct} 来自缓存。单次最大提示为 {peak}。', costNote: '按公开 API 价格估算。', input: '输入', error: '错误', result: '输出', showAll: '显示全部', play: '播放', pause: '暂停', replay: '从头播放', theme: '切换主题', speed: '速度', more: '还有 {n} 个', madeWith: '制作工具：', redacted: '分享前已移除：{list}', untitled: '未命名会话', seek: '时间轴', of: '/', branch: '分支' },
+    ko: { you: '나', thinking: '생각 중', activeTime: '작업 시간', prompts: ['프롬프트', '프롬프트'], toolCalls: '도구 호출', filesChanged: '변경된 파일', lines: '줄', peak: '가장 큰 프롬프트', cost: '비용', estCost: '예상 API 비용', files: '파일', tools: '도구', tokens: '토큰', output: '출력', newInput: '새 입력', cacheRead: '캐시 읽기', cacheWrite: '캐시 쓰기', requests: '요청 수', totalProcessed: '총 처리량', failed: '실패한 호출', tokenNote: '요청할 때마다 대화 전체를 다시 보내므로 합계에는 같은 맥락이 여러 번 포함됩니다. 그중 {pct}는 캐시에서 왔습니다. 한 번에 가장 큰 프롬프트는 {peak}였습니다.', costNote: '공개 API 가격 기준 추정치입니다.', input: '입력', error: '오류', result: '출력', showAll: '모두 보기', play: '재생', pause: '일시정지', replay: '처음부터 재생', theme: '테마 전환', speed: '속도', more: '+{n}개 더', madeWith: '제작 도구:', redacted: '공유 전 제거됨: {list}', untitled: '제목 없는 세션', seek: '타임라인', of: '/', branch: '브랜치' },
+  };
+  const qs = new URLSearchParams(location.search);
+  const wanted = [qs.get('lang'), ...(navigator.languages || [navigator.language || 'en'])].filter(Boolean);
+  const lang = wanted.map((l) => l.toLowerCase().split('-')[0]).find((l) => I18N[l]) || 'en';
+  const L = I18N[lang];
+  document.documentElement.lang = lang;
+  const tr = (k, vars = {}) => String(L[k] ?? I18N.en[k]).replace(/\{(\w+)\}/g, (_, v) => vars[v] ?? '');
+  const plural = (k, n) => { const f = L[k] || I18N.en[k]; return Array.isArray(f) ? f[n === 1 ? 0 : 1] : f; };
+  const nf = new Intl.NumberFormat(lang);
+  const cf = (() => { try { return new Intl.NumberFormat(lang, { notation: 'compact', maximumFractionDigits: 1 }); } catch { return null; } })();
+
+  /* ---------- helpers ---------- */
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const num = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e4 ? Math.round(n / 1e3) + 'k' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(n);
-  const dur = (ms) => { const m = Math.round(ms / 60000); return m < 1 ? '<1m' : m < 60 ? m + 'm' : Math.floor(m / 60) + 'h ' + (m % 60) + 'm'; };
+  const num = (n) => (n >= 1e6 && cf ? cf.format(n) : nf.format(n));
+  const dur = (ms) => { const m = Math.round(ms / 60000); if (m < 1) return '<1 min'; if (m < 60) return m + ' min'; return Math.floor(m / 60) + ' h ' + (m % 60) + ' min'; };
+  const clock = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : String(m).padStart(2, '0')) + ':' + String(x).padStart(2, '0'); };
   const base = (p) => String(p || '').split(/[\\/]/).pop();
-  // "…/hooks/useTheme.ts" with the directory part dimmed
-  const shortPath = (p) => {
-    const parts = String(p || '').split(/[\\/]/).filter(Boolean);
-    const name = parts.pop() || '';
-    const dir = parts.slice(-2).join('/');
-    return (dir ? `<i>${parts.length > 2 ? '…/' : ''}${esc(dir)}/</i>` : '') + esc(name);
+  const shortPath = (p) => { const parts = String(p || '').split(/[\\/]/).filter(Boolean); const name = parts.pop() || ''; const dir = parts.slice(-2).join('/'); return (dir ? `<i>${parts.length > 2 ? '…/' : ''}${esc(dir)}/</i>` : '') + esc(name); };
+  const money = (c) => { try { return new Intl.NumberFormat(lang, { style: 'currency', currency: 'USD', maximumFractionDigits: c < 10 ? 2 : 0 }).format(c); } catch { return '$' + c.toFixed(2); } };
+  const ICON = {
+    play: '<svg viewBox="0 0 16 16"><path d="M4 2.5v11l9-5.5z"/></svg>',
+    pause: '<svg viewBox="0 0 16 16"><path d="M4 2.5h3v11H4zM9 2.5h3v11H9z"/></svg>',
+    again: '<svg viewBox="0 0 16 16"><path d="M8 2.5a5.5 5.5 0 1 0 5.4 6.5h-1.6A4 4 0 1 1 8 4v2.2L11.2 3.3 8 .5z"/></svg>',
   };
 
-  /* ---------- summary card ---------- */
-  const date = S.start ? new Date(S.start).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '';
-  const tiles = [
-    ...(S.timesSynthetic ? [] : [[dur(S.activeMs), 'active time']]),
-    [S.prompts, S.prompts === 1 ? 'prompt' : 'prompts'],
-    [S.toolCalls, 'tool calls'],
-    [S.files.length, 'files changed'],
-    [`<span class="add">+${num(S.linesAdded)}</span> <span class="del">−${num(S.linesRemoved)}</span>`, 'lines'],
-    [num(S.tokens.total), 'tokens'],
-  ];
-  if (S.cost != null) tiles.push(['$' + (S.cost < 10 ? S.cost.toFixed(2) : Math.round(S.cost)), S.costReported ? 'cost' : 'est. API cost']);
-  $('card').innerHTML = `
-    <div class="card-top"><span class="badge">${esc(D.agent)}</span>
-      ${D.models.length ? `<span>${esc(D.models.join(', '))}</span>` : ''}
-      ${date ? `<span>· ${esc(date)}</span>` : ''}
-      ${D.branch && D.branch !== 'HEAD' ? `<span>· ⎇ ${esc(D.branch)}</span>` : ''}
-    </div>
-    <h1>${esc(D.title)}</h1>
-    <div class="tiles">${tiles.map(([b, s]) => `<div class="tile"><b>${b}</b><span>${s}</span></div>`).join('')}</div>`;
+  /* ---------- header ---------- */
+  const date = S.start ? new Date(S.start).toLocaleDateString(lang, { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+  const meta = [`<b>${esc(D.agent)}</b>`];
+  if (D.models.length) meta.push(esc(D.models.join(', ')));
+  if (date) meta.push(esc(date));
+  if (D.branch && D.branch !== 'HEAD') meta.push(`${esc(tr('branch'))} ${esc(D.branch)}`);
+  const figs = [];
+  if (!S.timesSynthetic) figs.push([dur(S.activeMs), tr('activeTime')]);
+  figs.push([nf.format(S.prompts), plural('prompts', S.prompts)]);
+  figs.push([nf.format(S.toolCalls), tr('toolCalls')]);
+  figs.push([nf.format(S.files.length), tr('filesChanged')]);
+  if (S.linesAdded || S.linesRemoved) figs.push([`<span class="add">+${num(S.linesAdded)}</span> <span class="del">−${num(S.linesRemoved)}</span>`, tr('lines')]);
+  if (S.tokens.peakContext) figs.push([num(S.tokens.peakContext), tr('peak')]);
+  if (S.cost != null) figs.push([money(S.cost), S.costReported ? tr('cost') : tr('estCost')]);
+  $('head').innerHTML = `<div class="meta">${meta.join('<span>·</span>')}</div>
+    <h1>${esc(D.title || tr('untitled'))}</h1>
+    <div class="figures">${figs.map(([n, l]) => `<div class="fig"><div class="n">${n}</div><div class="l">${esc(l)}</div></div>`).join('')}</div>`;
 
   /* ---------- sidebar ---------- */
+  const T = S.tokens;
   const maxTool = S.byTool.length ? S.byTool[0][1] : 1;
-  $('side').innerHTML = `
-    ${S.files.length ? `<div class="panel"><h3>Files changed</h3><ul class="files">${S.files.slice(0, 25).map((f) =>
-      `<li title="${esc(f.file)}"><span class="name">${shortPath(f.file)}</span><span class="n"><span style="color:var(--add)">+${f.added}</span> <span style="color:var(--del)">−${f.removed}</span></span></li>`).join('')}
-      ${S.files.length > 25 ? `<li class="muted">+${S.files.length - 25} more</li>` : ''}</ul></div>` : ''}
-    ${S.byTool.length ? `<div class="panel"><h3>Tools used</h3><ul class="toolbars">${S.byTool.slice(0, 12).map(([n, c]) =>
-      `<li><span class="tn" title="${esc(n)}">${esc(n.split(' · ').pop())}</span><div class="bar" style="width:${Math.max(4, (c / maxTool) * 100)}%"></div><span class="tc">${c}</span></li>`).join('')}</ul></div>` : ''}
-    <div class="panel"><h3>Tokens</h3>
-      <ul class="files">
-        <li><span>Input</span><span class="n">${num(S.tokens.input)}</span></li>
-        <li><span>Output</span><span class="n">${num(S.tokens.output)}</span></li>
-        <li><span>Cache read</span><span class="n">${num(S.tokens.cacheRead)}</span></li>
-        <li><span>Cache write</span><span class="n">${num(S.tokens.cacheWrite)}</span></li>
-        ${S.errors ? `<li><span>Failed tool calls</span><span class="n" style="color:var(--err)">${S.errors}</span></li>` : ''}
-      </ul>
-      ${S.cost != null && !S.costReported ? '<div class="redacted">Cost is an estimate at public API list prices.</div>' : ''}
-    </div>`;
+  const totalIn = T.input + T.cacheRead + T.cacheWrite;
+  const pct = totalIn ? Math.round((T.cacheRead / totalIn) * 100) + '%' : '0%';
+  let side = '';
+  if (S.files.length) side += `<section><h2>${esc(tr('files'))}</h2><ul class="rows">${S.files.slice(0, 20).map((f) =>
+      `<li title="${esc(f.file)}"><span class="k file">${shortPath(f.file)}</span><span class="v"><span style="color:var(--add)">+${f.added}</span> <span style="color:var(--del)">−${f.removed}</span></span></li>`).join('')}
+      ${S.files.length > 20 ? `<li><span class="k">${esc(tr('more', { n: S.files.length - 20 }))}</span></li>` : ''}</ul></section>`;
+  if (S.byTool.length) side += `<section><h2>${esc(tr('tools'))}</h2><ul class="rows">${S.byTool.slice(0, 10).map(([n, c]) =>
+      `<li title="${esc(n)}"><span class="k">${esc(n.split(' · ').pop())}</span><span class="v"><span class="bar" style="width:${Math.max(3, (c / maxTool) * 56)}px"></span>${c}</span></li>`).join('')}</ul></section>`;
+  if (T.total) side += `<section><h2>${esc(tr('tokens'))}</h2><ul class="rows">
+      <li><span class="k">${esc(tr('output'))}</span><span class="v">${nf.format(T.output)}</span></li>
+      <li><span class="k">${esc(tr('newInput'))}</span><span class="v">${nf.format(T.input)}</span></li>
+      ${T.cacheRead ? `<li><span class="k">${esc(tr('cacheRead'))}</span><span class="v">${nf.format(T.cacheRead)}</span></li>` : ''}
+      ${T.cacheWrite ? `<li><span class="k">${esc(tr('cacheWrite'))}</span><span class="v">${nf.format(T.cacheWrite)}</span></li>` : ''}
+      ${T.requests ? `<li><span class="k">${esc(tr('requests'))}</span><span class="v">${nf.format(T.requests)}</span></li>` : ''}
+      <li class="strong"><span class="k">${esc(tr('totalProcessed'))}</span><span class="v">${nf.format(T.total)}</span></li>
+      ${S.errors ? `<li><span class="k">${esc(tr('failed'))}</span><span class="v" style="color:var(--warn)">${S.errors}</span></li>` : ''}
+    </ul>${T.requests > 1 && T.peakContext ? `<p class="note">${esc(tr('tokenNote', { pct, peak: num(T.peakContext) }))}</p>` : ''}
+    ${S.cost != null && !S.costReported ? `<p class="note">${esc(tr('costNote'))}</p>` : ''}</section>`;
+  $('side').innerHTML = side;
 
   const red = D.redactions ? Object.entries(D.redactions) : [];
-  const gen = D.generator;
-  $('foot').innerHTML = `Made with ${gen.url ? `<a href="${esc(gen.url)}">agentreplay</a>` : 'agentreplay'} v${esc(gen.version)}
-    ${red.length ? `<div class="redacted">🔒 Redacted before sharing: ${red.map(([k, v]) => `${v} ${esc(k)}`).join(', ')}</div>` : ''}`;
+  const g = D.generator;
+  $('foot').innerHTML = `<span>${esc(tr('madeWith'))} ${g.url ? `<a href="${esc(g.url)}">agentreplay</a>` : 'agentreplay'} ${esc(g.version)}</span>
+    ${red.length ? `<span>${esc(tr('redacted', { list: red.map(([k, v]) => `${v} × ${k}`).join(', ') }))}</span>` : ''}`;
 
-  /* ---------- tiny markdown ---------- */
+  /* ---------- markdown (small, safe) ---------- */
   function md(src) {
-    const parts = String(src).split(/```(\w*)\n?([\s\S]*?)```/g);
+    const parts = String(src).split(/```[\w+-]*\n?([\s\S]*?)```/g);
     let html = '';
-    for (let i = 0; i < parts.length; i += 3) {
-      html += parts[i].split(/\n{2,}/).filter((p) => p.trim()).map((p) => '<p>' + inline(p).replace(/\n/g, '<br>') + '</p>').join('');
-      if (parts[i + 2] !== undefined) html += `<pre><code>${esc(parts[i + 2].replace(/\n$/, ''))}</code></pre>`;
+    for (let i = 0; i < parts.length; i++) {
+      if (i % 2) { html += `<pre><code>${esc(parts[i].replace(/\n$/, ''))}</code></pre>`; continue; }
+      for (const block of parts[i].split(/\n{2,}/)) {
+        if (!block.trim()) continue;
+        const lines = block.split('\n');
+        if (lines.every((l) => /^\s*[-*•] /.test(l))) html += '<ul>' + lines.map((l) => `<li>${inline(l.replace(/^\s*[-*•] /, ''))}</li>`).join('') + '</ul>';
+        else if (lines.every((l) => /^\s*\d+[.)] /.test(l))) html += '<ol>' + lines.map((l) => `<li>${inline(l.replace(/^\s*\d+[.)] /, ''))}</li>`).join('') + '</ol>';
+        else html += '<p>' + inline(block).replace(/\n/g, '<br>') + '</p>';
+      }
     }
     return html;
   }
@@ -226,118 +291,143 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 4
 
   /* ---------- events ---------- */
   const E = D.events;
+  const t0 = E.length && E[0].t ? E[0].t : 0;
   function render(e, i) {
     const el = document.createElement('div');
     el.id = 'e' + i;
-    if (e.kind === 'user') { el.className = 'ev user'; el.textContent = e.text; }
-    else if (e.kind === 'assistant') { el.className = 'ev assistant'; el.innerHTML = md(e.text); }
-    else if (e.kind === 'thinking') { el.className = 'ev thinking'; el.textContent = e.text; el.onclick = () => el.classList.toggle('open'); }
-    else {
-      el.className = 'ev tool' + (e.isError ? ' err' : '') + (e.diff ? ' edit' : '');
-      const lines = e.lines ? `<span class="tlines"><span class="a">+${e.lines.added}</span> <span class="d">−${e.lines.removed}</span></span>` : '';
+    const prev = E[i - 1];
+    const newTurn = e.kind === 'user' || (prev && prev.kind === 'user');
+    const time = !S.timesSynthetic && e.t && t0 ? clock(e.t - t0) : '';
+    const gutter = `<div class="t">${time}</div>`;
+    if (e.kind === 'user') {
+      el.className = 'ev user turn';
+      el.innerHTML = `${gutter}<div><div class="who">${esc(tr('you'))}</div><div class="body"></div></div>`;
+      el.querySelector('.body').textContent = e.text;
+    } else if (e.kind === 'assistant') {
+      el.className = 'ev say' + (newTurn ? ' turn' : '');
+      el.innerHTML = `${gutter}<div>${newTurn ? `<div class="who">${esc(D.agent)}</div>` : ''}<div class="body">${md(e.text)}</div></div>`;
+    } else if (e.kind === 'thinking') {
+      el.className = 'ev think' + (newTurn ? ' turn' : '');
+      el.innerHTML = `${gutter}<div>${newTurn ? `<div class="who">${esc(D.agent)}</div>` : ''}<div class="body" title="${esc(tr('thinking'))}"></div></div>`;
+      el.querySelector('.body').textContent = e.text;
+      el.querySelector('.body').onclick = () => el.classList.toggle('open');
+    } else {
+      el.className = 'ev tool' + (e.isError ? ' err' : '') + (newTurn ? ' turn' : '');
+      const lines = e.lines ? `<span class="dl"><span class="a">+${e.lines.added}</span> <span class="d">−${e.lines.removed}</span></span>` : '';
       const sum = e.diff ? base(e.file) + (e.files && e.files.length > 1 ? ` +${e.files.length - 1}` : '') : e.summary;
-      el.innerHTML = `<div class="tool-head"><span class="dot"></span><span class="tname">${esc(e.name)}</span><span class="tsum" title="${esc(e.summary)}">${esc(sum)}</span>${lines}</div>
-        <div class="tool-body">${e.diff ? (e.file ? `<div class="lbl path">${esc(e.file)}</div>` : '') + diffHtml(e.diff) : ''}
-        ${e.input ? `<div class="lbl">Input</div><pre>${esc(e.input)}</pre>` : ''}
-        ${e.output ? `<div class="lbl">${e.isError ? 'Error' : 'Output'}</div><pre>${esc(e.output)}</pre>` : ''}</div>`;
-      el.querySelector('.tool-head').onclick = () => el.classList.toggle('open');
-      if (e.diff || e.isError) el.classList.add('open');
+      const name = String(e.name).split(' · ').pop();
+      el.innerHTML = `${gutter}<div>${newTurn ? `<div class="who">${esc(D.agent)}</div>` : ''}
+        <div class="line" role="button" tabindex="0" aria-expanded="false"><span class="g">${e.isError ? '✕' : '✓'}</span><span class="nm" title="${esc(e.name)}">${esc(name)}</span><span class="sum" title="${esc(e.summary)}">${esc(sum)}</span>${lines}</div>
+        <div class="detail">${e.diff ? (e.file ? `<div class="path">${esc(e.file)}</div>` : '') + diffHtml(e.diff) : ''}
+          ${e.input ? `<div class="lbl">${esc(tr('input'))}</div><pre>${esc(e.input)}</pre>` : ''}
+          ${e.output ? `<div class="lbl">${esc(e.isError ? tr('error') : tr('result'))}</div><pre>${esc(e.output)}</pre>` : ''}</div></div>`;
+      const line = el.querySelector('.line');
+      const toggle = () => { el.classList.toggle('open'); line.setAttribute('aria-expanded', el.classList.contains('open')); };
+      line.onclick = toggle;
+      line.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(); } };
+      if (e.isError || (e.diff && e.lines && e.lines.added + e.lines.removed <= 40)) { el.classList.add('open'); line.setAttribute('aria-expanded', 'true'); }
     }
     return el;
   }
 
   /* ---------- schedule: condensed time ---------- */
-  // Real gaps are squeezed into 0.35–2.5s so a 2-hour session plays in minutes,
-  // with a bit of extra hold for long messages so they're readable.
   const sched = [];
   let acc = 0;
   for (let i = 0; i < E.length; i++) {
     if (i > 0) {
-      const prev = E[i - 1];
-      const gap = (E[i].t && prev.t) ? Math.max(0, E[i].t - prev.t) : 800;
-      const read = prev.kind === 'user' || prev.kind === 'assistant' ? Math.min(3000, (prev.text || '').length * 12) : 0;
+      const p = E[i - 1];
+      const gap = E[i].t && p.t ? Math.max(0, E[i].t - p.t) : 800;
+      const read = p.kind === 'user' || p.kind === 'assistant' ? Math.min(3000, (p.text || '').length * 12) : 0;
       acc += Math.min(2500, Math.max(350, gap / 4)) + read;
     }
     sched.push(acc);
   }
   const total = acc + 1200;
 
-  // Markers on the track
   const track = $('track');
   E.forEach((e, i) => {
     const cls = e.kind === 'user' ? 'u' : e.isError ? 'x' : e.diff ? 'e' : null;
     if (!cls) return;
     const m = document.createElement('div');
     m.className = 'mk ' + cls;
-    m.style.left = (sched[i] / total * 100) + '%';
+    m.style.left = (sched[i] / total) * 100 + '%';
     track.appendChild(m);
   });
 
   /* ---------- player ---------- */
-  const feed = $('feed');
-  let shown = 0, clock = 0, playing = false, last = 0, speed = 1;
+  const log = $('log');
+  let shown = 0, at = 0, playing = false, last = 0, speed = 1;
+  const SPEEDS = [0.5, 1, 2, 4, 10];
 
   function showUpTo(n, animate) {
     n = Math.max(0, Math.min(E.length, n));
-    if (n < shown) { feed.innerHTML = ''; shown = 0; }
+    if (n < shown) { log.innerHTML = ''; shown = 0; }
     const frag = document.createDocumentFragment();
     let lastEl = null;
-    while (shown < n) { lastEl = render(E[shown], shown); if (!animate) lastEl.style.animation = 'none'; frag.appendChild(lastEl); shown++; }
-    if (lastEl) {
-      feed.appendChild(frag);
-      if (animate) lastEl.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }
+    while (shown < n) { lastEl = render(E[shown], shown); if (animate) lastEl.classList.add('new'); frag.appendChild(lastEl); shown++; }
+    if (lastEl) { log.appendChild(frag); if (animate) lastEl.scrollIntoView({ behavior: 'smooth', block: 'end' }); }
   }
   function ui() {
-    const p = Math.min(1, clock / total);
-    $('fill').style.width = (p * 100) + '%';
-    $('clock').textContent = `${shown} / ${E.length} events`;
-    $('play').textContent = playing ? '❚❚' : (shown >= E.length ? '↺' : '▶');
-    $('play').setAttribute('aria-label', playing ? 'Pause' : 'Play');
+    const p = Math.min(1, at / total);
+    $('fill').style.width = p * 100 + '%';
+    $('phead').style.left = p * 100 + '%';
+    $('count').textContent = `${shown} ${tr('of')} ${E.length}`;
+    const done = shown >= E.length && !playing;
+    $('play').innerHTML = playing ? ICON.pause : done ? ICON.again : ICON.play;
+    $('play').setAttribute('aria-label', playing ? tr('pause') : done ? tr('replay') : tr('play'));
+    $('play').title = $('play').getAttribute('aria-label');
   }
   function tick(now) {
     if (!playing) return;
-    clock += (now - last) * speed; last = now;
+    at += (now - last) * speed; last = now;
     let n = shown;
-    while (n < E.length && sched[n] <= clock) n++;
+    while (n < E.length && sched[n] <= at) n++;
     if (n !== shown) showUpTo(n, true);
-    if (shown >= E.length && clock >= total) { playing = false; }
+    if (shown >= E.length && at >= total) playing = false;
     ui();
     if (playing) requestAnimationFrame(tick);
   }
-  function play() {
-    if (shown >= E.length) { clock = 0; showUpTo(0); }
-    playing = true; last = performance.now(); requestAnimationFrame(tick); ui();
-  }
+  function play() { if (shown >= E.length) { at = 0; showUpTo(0); } playing = true; last = performance.now(); requestAnimationFrame(tick); ui(); }
   function pause() { playing = false; ui(); }
   function seekTo(n) {
     pause();
     showUpTo(n, false);
-    clock = n > 0 ? sched[n - 1] : 0;
+    at = n > 0 ? sched[n - 1] : 0;
     const el = $('e' + (n - 1));
     if (el) el.scrollIntoView({ block: 'center' });
     ui();
   }
 
   $('play').onclick = () => (playing ? pause() : play());
-  $('speed').onchange = (ev) => { speed = Number(ev.target.value); };
-  $('all').onclick = () => { seekTo(E.length); clock = total; ui(); };
+  $('all').textContent = tr('showAll');
+  $('all').onclick = () => { seekTo(E.length); at = total; ui(); };
+  $('speeds').setAttribute('aria-label', tr('speed'));
+  $('speeds').innerHTML = SPEEDS.map((s) => `<button aria-pressed="${s === 1}" data-s="${s}">${s}×</button>`).join('');
+  $('speeds').onclick = (ev) => {
+    const b = ev.target.closest('button');
+    if (!b) return;
+    const narrow = matchMedia('(max-width: 700px)').matches;
+    speed = narrow && b.getAttribute('aria-pressed') === 'true' ? SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length] : Number(b.dataset.s);
+    for (const x of $('speeds').children) x.setAttribute('aria-pressed', Number(x.dataset.s) === speed);
+  };
+  $('theme').setAttribute('aria-label', tr('theme'));
+  $('theme').title = tr('theme');
   $('theme').onclick = () => {
     const r = document.documentElement;
     const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
     r.dataset.theme = dark ? 'light' : 'dark';
     try { localStorage.setItem('agentreplay-theme', r.dataset.theme); } catch {}
   };
-  try { const t = localStorage.getItem('agentreplay-theme'); if (t) document.documentElement.dataset.theme = t; } catch {}
+  try { const th = localStorage.getItem('agentreplay-theme'); if (th) document.documentElement.dataset.theme = th; } catch {}
 
-  track.onclick = (ev) => {
-    const r = track.getBoundingClientRect();
-    const target = (ev.clientX - r.left) / r.width * total;
-    let n = 0; while (n < E.length && sched[n] <= target) n++;
-    seekTo(n);
-  };
+  track.setAttribute('role', 'slider');
+  track.setAttribute('aria-label', tr('seek'));
+  track.tabIndex = 0;
+  const seekAt = (x) => { const r = track.getBoundingClientRect(); const target = ((x - r.left) / r.width) * total; let n = 0; while (n < E.length && sched[n] <= target) n++; seekTo(n); };
+  track.onpointerdown = (ev) => { seekAt(ev.clientX); track.setPointerCapture(ev.pointerId); track.onpointermove = (m) => seekAt(m.clientX); };
+  track.onpointerup = () => { track.onpointermove = null; };
   document.addEventListener('keydown', (ev) => {
-    if (ev.target.tagName === 'SELECT') return;
+    if (ev.target.closest && ev.target.closest('.line')) return;
     if (ev.code === 'Space') { ev.preventDefault(); playing ? pause() : play(); }
     else if (ev.key === 'ArrowRight') seekTo(shown + 1);
     else if (ev.key === 'ArrowLeft') seekTo(shown - 1);
@@ -345,11 +435,11 @@ footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 4
     else if (ev.key === 'Home') seekTo(0);
   });
 
-  // Deep link: #e42 opens the replay at event 42. ?static shows everything at once.
+  // #e42 opens at event 42; ?static shows everything at once.
   const m = location.hash.match(/^#e(\d+)$/);
-  if (m) { seekTo(Number(m[1]) + 1); }
-  else if (/[?&]static\b/.test(location.search)) { $('all').click(); }
-  else { showUpTo(1, false); clock = sched[0]; ui(); setTimeout(play, 600); }
+  if (m) seekTo(Number(m[1]) + 1);
+  else if (qs.has('static')) $('all').click();
+  else { showUpTo(1, false); at = sched[0]; ui(); setTimeout(play, 700); }
 })();
 </script>
 </body>

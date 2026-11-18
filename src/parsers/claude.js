@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { readJsonl, toText, stripHarnessTags, truncate, lineDelta } from '../util.js';
+import { readJsonl, toText, stripHarnessTags, truncate, lineDelta, trackRequest } from '../util.js';
 
 const MAX_OUTPUT = 4000;
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
@@ -102,6 +102,7 @@ function addUsage(session, model, u) {
     session.usage[k] += add[k];
     per[k] += add[k];
   }
+  trackRequest(session, add);
 }
 
 function toolEvent(b, ts) {

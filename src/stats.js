@@ -56,6 +56,8 @@ export function computeStats(session, pricing) {
       cacheRead: u.cacheRead,
       cacheWrite: u.cacheWrite + u.cacheWrite1h,
       total: u.input + u.output + u.cacheRead + u.cacheWrite + u.cacheWrite1h,
+      peakContext: session.peakContext || 0,
+      requests: session.requests || 0,
     },
     cost: session.reportedCost ?? estimateCost(session.usageByModel, pricing),
     costReported: session.reportedCost != null,

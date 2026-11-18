@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { readJsonl, toText, truncate, parsePatch } from '../util.js';
+import { readJsonl, toText, truncate, parsePatch, trackRequest } from '../util.js';
 
 const MAX_OUTPUT = 4000;
 
@@ -48,7 +48,14 @@ export function parse(file) {
     if (currentModel) session.models.add(currentModel);
 
     if (r.type === 'event_msg' && p.type === 'token_count' && p.info?.total_token_usage) {
-      lastTotals = p.info.total_token_usage; // cumulative — keep the last one
+      const tot = p.info.total_token_usage; // cumulative across the session
+      const last = p.info.last_token_usage; // this one request
+      const changed = !lastTotals || tot.total_tokens !== lastTotals.total_tokens || tot.input_tokens !== lastTotals.input_tokens;
+      if (last && changed) {
+        const cachedLast = last.cached_input_tokens || 0;
+        trackRequest(session, { input: (last.input_tokens || 0) - cachedLast, cacheRead: cachedLast, output: last.output_tokens || 0 });
+      }
+      lastTotals = tot;
       continue;
     }
     if (r.type !== 'response_item') continue;

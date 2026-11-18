@@ -32,6 +32,8 @@ You just watched an AI agent build a feature in 6 minutes. Now you want to show 
 - 🔒 **Safe to share by default.** API keys, tokens, JWTs, private keys, passwords in env assignments, e-mail addresses and your home directory are redacted *before* the HTML is written. The footer says what was removed.
 - 📝 **Real diffs.** Edits are shown as red and green diffs with a per-file `+/-` summary: Claude's `Edit`/`Write`, Codex `apply_patch`, Cline/Roo/Aider SEARCH/REPLACE blocks, OpenCode and Gemini edit tools.
 - 📦 **One file, zero dependencies.** The output is one HTML file that works offline. Host it anywhere: GitHub Pages, a gist, Slack, e-mail.
+- 🌍 **Speaks the viewer's language.** The page follows the browser language (English, Türkçe, Español, Deutsch, Français, Português, Italiano, Русский, 日本語, 中文, 한국어). Add `?lang=xx` to force one.
+- 🧮 **Honest token numbers.** Agents re-send the whole conversation on every request, so summed tokens balloon. The replay leads with the largest single prompt and explains the total, including how much came from cache.
 - 🌗 Light and dark themes, works on phones, and keyboard shortcuts (`space`, `←` `→`, `Home`, `End`).
 
 ## Quick start
@@ -128,7 +130,7 @@ Sessions are found automatically. You can also pass any file directly.
     --no-open         don't open the replay in a browser
 ```
 
-**URL tricks:** add `#e42` to open a replay at event 42, or `?static` to show the whole session at once with no animation.
+**URL tricks:** add `#e42` to open a replay at event 42, `?static` to show the whole session at once with no animation, or `?lang=de` to pick the interface language.
 
 ## Sharing a replay
 
