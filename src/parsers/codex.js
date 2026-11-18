@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { readJsonl, toText, truncate, parsePatch, trackRequest } from '../util.js';
+import { readJsonl, toText, truncate, parsePatch, trackRequest, stripHarnessTags } from '../util.js';
 
 const MAX_OUTPUT = 4000;
 
@@ -63,7 +63,7 @@ export function parse(file) {
     switch (p.type) {
       case 'message': {
         if (p.role === 'developer' || p.role === 'system') break;
-        const text = toText(p.content).trim();
+        const text = (p.role === 'user' ? stripHarnessTags(toText(p.content)) : toText(p.content)).trim();
         if (!text) break;
         if (p.role === 'user') {
           // Codex injects environment / instruction blocks as user messages.

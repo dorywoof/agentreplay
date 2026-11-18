@@ -248,3 +248,16 @@ test('OpenCode SQLite database (node:sqlite)', async (t) => {
   assert.deepEqual(s.models, ['kimi-k3']);
   assert.equal(s.events[1].t, 1730000002000);
 });
+
+test('Codex: harness tags in user messages are stripped', async () => {
+  const codex = await import('../src/parsers/codex.js');
+  const ts = '2026-01-01T00:00:00Z';
+  const f = put('codex-tags/rollout-x.jsonl', [
+    { timestamp: ts, type: 'session_meta', payload: { id: 'z' } },
+    { timestamp: ts, type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: '<system-reminder>private context</system-reminder>' }] } },
+    { timestamp: ts, type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: '<system-reminder>more</system-reminder>\nfix the bug' }] } },
+  ]);
+  const s = codex.parse(f);
+  assert.deepEqual(s.events.map((e) => e.text), ['fix the bug']);
+  assert.equal(s.title, 'fix the bug');
+});
