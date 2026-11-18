@@ -176,7 +176,3 @@ npm run demo                 # render examples/demo.html
 ## License
 
 MIT
-
-<p align="center">
-  <a href="https://digivated.com/projects/listing/d5a6d3ac-0bba-4dc5-bf5b-610334ad358f" data-digivated-project="d5a6d3ac-0bba-4dc5-bf5b-610334ad358f" target="_blank" rel="noopener"><img src="https://digivated.com/badge/d5a6d3ac-0bba-4dc5-bf5b-610334ad358f?theme=dark" alt="Featured on Digivated" width="250" height="54"></a>
-</p>
