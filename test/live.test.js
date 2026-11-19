@@ -143,6 +143,10 @@ test('CLI: statusline never fails, session-end saves a replay and reports via sy
   assert.equal(saved.length, 1);
   const resumed = spawnSync(process.execPath, [BIN, 'hook', 'session-end'], { input: JSON.stringify({ transcript_path: DEMO, reason: 'resume' }), encoding: 'utf8', env });
   assert.equal(resumed.status, 0);
+  assert.equal(resumed.stdout, '');
+  const sub = spawnSync(process.execPath, [BIN, 'hook', 'session-end'], { input: JSON.stringify({ transcript_path: DEMO, reason: 'other', agent_id: 'a1' }), encoding: 'utf8', env });
+  assert.equal(sub.stdout, '');
+  assert.equal(fs.readdirSync(path.join(home, '.agentreplayer', 'replays')).length, 1);
 });
 
 test('subscription: limits first, dollars become an API estimate, advice talks about the limit', () => {

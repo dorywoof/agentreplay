@@ -250,7 +250,8 @@ async function live(kind) {
   }
   if (kind === 'session-end') {
     // A /resume isn't the end of the work; tiny sessions aren't worth a summary.
-    if (!input.transcript_path || input.reason === 'resume') return;
+    // SessionEnd also fires when a subagent finishes; only the main session gets a summary.
+    if (!input.transcript_path || input.reason === 'resume' || input.agent_id) return;
     try {
       let session = parseClaude(input.transcript_path);
       const prompts = session.events.filter((e) => e.kind === 'user').length;
