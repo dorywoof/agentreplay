@@ -73,6 +73,9 @@ export function installSkill({ home, project, only, force = false } = {}) {
   return results;
 }
 
+/** Our SKILL.md: current ones link the repo; ones installed before 0.8.1 name the old scoped package. */
+const isOurs = (text) => text.includes('github.com/dorywoof/agentreplay') || text.includes('@dorywoof/agentreplay');
+
 /** Remove only folders this tool created (they hold our SKILL.md). */
 export function uninstallSkill({ home, project } = {}) {
   const results = [];
@@ -80,7 +83,7 @@ export function uninstallSkill({ home, project } = {}) {
     const dir = path.join(t.dir, SKILL_NAME);
     const file = path.join(dir, 'SKILL.md');
     if (!fs.existsSync(file)) continue;
-    if (!fs.readFileSync(file, 'utf8').includes('@dorywoof/agentreplay')) continue; // not ours
+    if (!isOurs(fs.readFileSync(file, 'utf8'))) continue; // not ours
     fs.rmSync(dir, { recursive: true, force: true });
     results.push({ agent: t.agent, file, status: 'removed' });
   }

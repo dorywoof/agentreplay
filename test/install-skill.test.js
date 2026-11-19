@@ -24,7 +24,7 @@ test('installs only for agents that exist, plus the shared folder', () => {
     assert.equal(byAgent['Claude Code'], 'skipped');
     const skill = fs.readFileSync(path.join(home, '.codex', 'skills', 'agentreplay', 'SKILL.md'), 'utf8');
     assert.match(skill, /^---\nname: agentreplay\n/);
-    assert.match(skill, /@dorywoof\/agentreplay/);
+    assert.match(skill, /npx -y agentreplayer@latest/);
     assert.equal(installSkill({ home }).find((r) => r.agent === 'Codex').status, 'unchanged');
 
     const removed = uninstallSkill({ home });

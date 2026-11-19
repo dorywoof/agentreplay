@@ -2,12 +2,12 @@
 name: replay
 description: Turn the current coding-agent session into a shareable, video-like HTML replay with diffs, tool calls, token/cost stats and automatic secret redaction. Use when the user asks to replay, share, export, record or show off what was done in this session, or asks for a replay of an earlier Claude Code, Codex, Gemini CLI, OpenCode, Cline, Roo, Copilot CLI, Qwen, Amp or Aider session.
 argument-hint: "[--list | --pick N | path/to/log] [--title \"…\"] [--no-thinking]"
-allowed-tools: Bash(npx -y @dorywoof/agentreplay*), Bash(npx @dorywoof/agentreplay*)
+allowed-tools: Bash(npx -y agentreplayer*), Bash(npx agentreplayer*)
 ---
 
 # Replay this session
 
-agentreplay is a zero-dependency CLI on npm (`@dorywoof/agentreplay`). It reads
+agentreplay (https://github.com/dorywoof/agentreplay) is a zero-dependency CLI on npm (`agentreplayer`). It reads
 agent session logs from disk and writes one self-contained HTML file that plays
 the session back like a video. It runs locally and uploads nothing. It works the
 same no matter which agent is running this skill.
@@ -17,7 +17,7 @@ same no matter which agent is running this skill.
 Run this in the user's shell, with `<agent>` set to the agent you are:
 
 ```bash
-npx -y @dorywoof/agentreplay@latest --agent <agent> -o agentreplay.html
+npx -y agentreplayer@latest --agent <agent> -o agentreplay.html
 ```
 
 | You are | `<agent>` |

@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <code>npx @dorywoof/agentreplay</code>
+  <code>npx agentreplayer</code>
 </p>
 
 <p align="center">
@@ -43,14 +43,14 @@ You just watched an AI agent build a feature in 6 minutes. Now you want to show 
 ## Quick start
 
 ```bash
-npx @dorywoof/agentreplay            # replays your most recent session and opens it
+npx agentreplayer            # replays your most recent session and opens it
 ```
 
 ```bash
-npx @dorywoof/agentreplay --list     # pick from recent sessions of every agent
-npx @dorywoof/agentreplay --pick 3
-npx @dorywoof/agentreplay path/to/session.jsonl -o my-replay.html
-npx @dorywoof/agentreplay --agents   # which agents were found on this machine
+npx agentreplayer --list     # pick from recent sessions of every agent
+npx agentreplayer --pick 3
+npx agentreplayer path/to/session.jsonl -o my-replay.html
+npx agentreplayer --agents   # which agents were found on this machine
 ```
 
 Requires Node 18+. Nothing is uploaded anywhere: everything happens on your machine.
@@ -58,11 +58,11 @@ Requires Node 18+. Nothing is uploaded anywhere: everything happens on your mach
 ## Race: up to six agents, one clock
 
 ```bash
-npx @dorywoof/agentreplay race claude codex          # newest session of each, side by side
-npx @dorywoof/agentreplay race claude codex gemini   # three agents
-npx @dorywoof/agentreplay race claude claude         # your two newest Claude Code sessions
-npx @dorywoof/agentreplay race 1 3 4                 # sessions from --list
-npx @dorywoof/agentreplay race a.jsonl b.jsonl --share
+npx agentreplayer race claude codex          # newest session of each, side by side
+npx agentreplayer race claude codex gemini   # three agents
+npx agentreplayer race claude claude         # your two newest Claude Code sessions
+npx agentreplayer race 1 3 4                 # sessions from --list
+npx agentreplayer race a.jsonl b.jsonl --share
 ```
 
 Give the same task to 2–6 agents (or models), then play all the sessions in sync. Each lane shows a live clock, tool calls, failures, files, lines changed, tokens and cost, and lanes get 1st / 2nd / 3rd… as they finish (lanes within 3% of each other share a place). Two lanes from the same agent are told apart by model, or numbered. Clocks show working time: pauses longer than 2 minutes count as 2 minutes in every lane, so a coffee break doesn't decide the race. `?at=754` opens the page at 12:34.
@@ -70,8 +70,8 @@ Give the same task to 2–6 agents (or models), then play all the sessions in sy
 ## Insights: where did your tokens go?
 
 ```bash
-npx @dorywoof/agentreplay insights            # last 7 days, every agent
-npx @dorywoof/agentreplay insights --days 30 --agent claude
+npx agentreplayer insights            # last 7 days, every agent
+npx agentreplayer insights --days 30 --agent claude
 ```
 
 Reads every session on your machine (Claude Code including subagents, Codex, Gemini CLI, OpenCode, Cline…) and tells you:
@@ -106,7 +106,7 @@ Then type `/agentreplay:replay`, or just ask *"make a replay of this session"*. 
 Most agents now read the open [Agent Skills](https://agentskills.io) format (`SKILL.md`). One command installs the replay skill into every agent it finds on your machine:
 
 ```bash
-npx @dorywoof/agentreplay install-skill
+npx agentreplayer install-skill
 ```
 
 | Agent | Installed to |
@@ -170,7 +170,7 @@ Sessions are found automatically. You can also pass any file directly.
 One command gives you a link:
 
 ```bash
-npx @dorywoof/agentreplay --share
+npx agentreplayer --share
 ```
 
 This uploads the redacted replay as a **secret GitHub Gist** and prints a link like `https://dorywoof.github.io/agentreplay/view.html#<gist-id>`. It uses the GitHub CLI if you're logged in (`gh auth login`), otherwise a `GITHUB_TOKEN` with the `gist` scope. Secret gists aren't listed or searchable, but anyone with the link can view it. Delete the gist to take it down. `--share` refuses to run with `--no-redact`.
@@ -190,7 +190,7 @@ When the agent records what a session cost (Cline, Roo, Kilo, OpenCode), that nu
 ```
 
 ```bash
-npx @dorywoof/agentreplay --pricing prices.json
+npx agentreplayer --pricing prices.json
 ```
 
 ## Roadmap
