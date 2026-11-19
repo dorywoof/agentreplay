@@ -11,7 +11,10 @@
 .race h1 { max-width: none; margin-bottom: 10px; }
 .task { color: var(--muted); margin: 0 0 24px; max-width: 80ch; overflow-wrap: anywhere; }
 .task b { color: var(--ink); font-weight: 600; }
-.board { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); }
+/* --n lanes; from 4 lanes up, columns keep a readable width and the arena scrolls sideways as one */
+.arena { --colmin: 0px; overflow-x: auto; }
+.arena.many { --colmin: 300px; }
+.board { display: grid; grid-template-columns: repeat(var(--n), minmax(var(--colmin), 1fr)); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); }
 .card { padding: 14px 24px 16px 0; min-width: 0; }
 .card + .card { padding-left: 24px; border-left: 1px solid var(--rule); }
 .card .who { margin: 0 0 6px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
@@ -19,7 +22,8 @@
 .card .clock { font: 500 34px/1.1 var(--mono); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
 .card .state { font: 12px var(--mono); color: var(--muted); margin-left: 10px; letter-spacing: 0; }
 .card.done .state { color: var(--add); }
-.card .first { font: 600 10.5px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--bg); background: var(--add); padding: 3px 6px; margin-left: 10px; vertical-align: 6px; }
+.card .place { font: 600 10.5px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); border: 1px solid var(--rule); padding: 2px 5px; margin-left: 10px; vertical-align: 6px; }
+.card .place.p1 { color: var(--bg); background: var(--add); border-color: var(--add); }
 .card .nums { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: 10px; font: 12.5px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
 .card .nums b { color: var(--ink); font-weight: 500; }
 .card .nums .add { color: var(--add); } .card .nums .del { color: var(--del); } .card .nums .bad { color: var(--warn); }
@@ -29,7 +33,7 @@
 .tabs { display: none; margin-top: 16px; border: 1px solid var(--rule); font: 12px var(--mono); }
 .tabs button { flex: 1; padding: 8px; color: var(--muted); }
 .tabs button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
-.lanes { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-top: 8px; }
+.lanes { display: grid; grid-template-columns: repeat(var(--n), minmax(var(--colmin), 1fr)); gap: 0; margin-top: 8px; }
 .lane { min-width: 0; height: calc(100vh - 150px); min-height: 360px; overflow-y: auto; padding: 8px 24px 40px 0; overscroll-behavior: contain; }
 .lane + .lane { padding-left: 24px; border-left: 1px solid var(--rule); }
 .lane .ev { grid-template-columns: 46px minmax(0, 1fr); gap: 0 12px; }
@@ -39,8 +43,11 @@
 .open > div > .clamp, .clamp.open { display: block; }
 .lane .empty { color: var(--faint); font: 12px var(--mono); padding: 18px 0; }
 @media (max-width: 760px) {
-  .board { grid-template-columns: 1fr 1fr; }
-  .card { padding-right: 10px; } .card + .card { padding-left: 12px; }
+  .arena, .arena.many { overflow: visible; --colmin: 0px; }
+  .board { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .card, .card + .card { padding: 12px 10px 14px 0; border-left: 0; }
+  .card:nth-child(2n) { padding-left: 12px; border-left: 1px solid var(--rule); }
+  .card:nth-child(n + 3) { border-top: 1px solid var(--rule); }
   .card .clock { font-size: 24px; }
   .card .nums { gap: 2px 12px; font-size: 11.5px; }
   .card .state { display: block; margin: 2px 0 0; }
@@ -54,8 +61,11 @@
 <body>
 <div class="wrap race">
   <header id="head"></header>
-  <div class="tabs" id="tabs" role="group"></div>
-  <div class="lanes" id="lanes"></div>
+  <div class="arena" id="arena">
+    <div class="board" id="board"></div>
+    <div class="tabs" id="tabs" role="group"></div>
+    <div class="lanes" id="lanes"></div>
+  </div>
   <footer id="foot"></footer>
 </div>
 <div class="player">
@@ -105,32 +115,45 @@
     return { ...L, ev, end, cum, shown: 0 };
   });
   const total = Math.max(1, ...lanes.map((l) => l.end));
-  const finishOrder = lanes.map((l, i) => i).sort((a, b) => lanes[a].end - lanes[b].end);
-  // Only call a winner when both lanes really ran (timed, a minute or more) and the gap is clear.
-  const decisive = lanes.length === 2 && lanes.every((l) => l.timed && l.end >= 60_000) && lanes[finishOrder[0]].end < lanes[finishOrder[1]].end * 0.97;
+  // Places go to lanes that really ran (timed, a minute or more), when at least two did.
+  // Lanes within 3% of the one ahead share its place.
+  const place = new Array(lanes.length).fill(0);
+  const ranked = lanes.map((l, i) => i).filter((i) => lanes[i].timed && lanes[i].end >= 60_000);
+  if (ranked.length >= 2) {
+    const order = ranked.sort((a, b) => lanes[a].end - lanes[b].end);
+    order.forEach((li, k) => {
+      const prev = order[k - 1];
+      place[li] = k && lanes[li].end <= lanes[prev].end * 1.03 ? place[prev] : k + 1;
+    });
+    if (order.every((i) => place[i] === 1)) place.fill(0); // a dead heat isn't worth a badge
+  }
+  const ordinal = (n) => n + (n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th');
+  const label = (l) => l.label || l.agent;
 
   /* ---------- header ---------- */
   const titles = lanes.map((l) => l.title).filter(Boolean);
   const sameTask = titles.length === lanes.length && titles.every((t) => t === titles[0]);
-  $('head').innerHTML = `<div class="meta"><b>agentreplay race</b><span>·</span>${lanes.map((l) => esc(l.agent)).join(' vs ')}</div>
+  $('head').innerHTML = `<div class="meta"><b>agentreplay race</b><span>·</span>${lanes.length} lanes</div>
     <h1>${esc(D.title)}</h1>
-    ${sameTask ? `<p class="task"><b>Task</b> · ${esc(titles[0])}</p>` : ''}
-    <div class="board" id="board">${lanes.map((l, i) => `<div class="card" id="c${i}">
-      <div class="who">${esc(l.agent)}${l.models && l.models.length ? `<span class="mdl">${esc(l.models.join(', '))}</span>` : ''}</div>
+    ${sameTask ? `<p class="task"><b>Task</b> · ${esc(titles[0])}</p>` : ''}`;
+  $('arena').style.setProperty('--n', lanes.length);
+  $('arena').classList.toggle('many', lanes.length >= 4);
+  $('board').innerHTML = lanes.map((l, i) => `<div class="card" id="c${i}">
+      <div class="who">${esc(label(l))}${l.models && l.models.length && label(l) === l.agent ? `<span class="mdl">${esc(l.models.join(', '))}</span>` : ''}</div>
       <div><span class="clock" id="k${i}">00:00</span><span class="state" id="s${i}"></span><span id="f${i}"></span></div>
       ${!sameTask && l.title ? `<div class="task" style="margin:6px 0 0;font-size:13px">${esc(l.title)}</div>` : ''}
       <div class="nums" id="n${i}"></div>
-      <div class="prog"><i id="p${i}"></i></div></div>`).join('')}</div>`;
+      <div class="prog"><i id="p${i}"></i></div></div>`).join('');
 
-  $('tabs').innerHTML = lanes.map((l, i) => `<button aria-pressed="${i === 0}" data-i="${i}">${esc(l.agent)}</button>`).join('');
+  $('tabs').innerHTML = lanes.map((l, i) => `<button aria-pressed="${i === 0}" data-i="${i}">${esc(label(l))}</button>`).join('');
   $('tabs').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; for (const x of $('tabs').children) x.setAttribute('aria-pressed', x === b); lanes.forEach((l, i) => { $('l' + i).hidden = String(i) !== b.dataset.i; }); };
-  $('lanes').innerHTML = lanes.map((l, i) => `<main class="lane" id="l${i}" ${i ? 'hidden' : ''} aria-label="${esc(l.agent)}" aria-live="polite"></main>`).join('');
+  $('lanes').innerHTML = lanes.map((l, i) => `<main class="lane" id="l${i}" ${i ? 'hidden' : ''} aria-label="${esc(label(l))}" aria-live="polite"></main>`).join('');
   if (!matchMedia('(max-width: 760px)').matches) lanes.forEach((l, i) => ($('l' + i).hidden = false));
   addEventListener('resize', () => { if (!matchMedia('(max-width: 760px)').matches) lanes.forEach((l, i) => ($('l' + i).hidden = false)); });
 
   const red = D.redactions ? Object.entries(D.redactions) : [];
   const g = D.generator;
-  const untimed = lanes.filter((l) => !l.timed).map((l) => l.agent);
+  const untimed = lanes.filter((l) => !l.timed).map(label);
   $('foot').innerHTML = `<span>Made with ${g.url ? `<a href="${esc(g.url)}" target="_blank" rel="noopener">agentreplay</a>` : 'agentreplay'} ${esc(g.version)}</span>
     <span>Clocks show working time: pauses longer than 2 min count as 2 min in both lanes.${untimed.length ? ` No timestamps for ${esc(untimed.join(', '))}: it advances one step every 4 s.` : ''}</span>
     ${red.length ? `<span>Removed before sharing: ${esc(red.map(([k, v]) => `${v} × ${k}`).join(', '))}</span>` : ''}`;
@@ -225,8 +248,7 @@
       $('k' + i).textContent = L.timed ? clock(t) : `${n}/${L.ev.length}`;
       $('s' + i).textContent = done ? '✓ finished' : at > 0 && n ? 'working…' : '';
       $('c' + i).classList.toggle('done', done);
-      const firstIdx = finishOrder[0];
-      $('f' + i).innerHTML = decisive && i === firstIdx && done ? '<span class="first">First</span>' : '';
+      $('f' + i).innerHTML = place[i] && done ? `<span class="place p${place[i]}">${ordinal(place[i])}</span>` : '';
       $('p' + i).style.width = (L.end ? Math.min(1, t / L.end) : done ? 1 : 0) * 100 + '%';
       $('n' + i).innerHTML = [
         `<span><b>${nf.format(c.tools)}</b> tool calls</span>`,

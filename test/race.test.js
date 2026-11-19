@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { workClock, buildLane, renderRace, resolveRef, IDLE_CAP_MS } from '../src/race.js';
+import { workClock, buildLane, renderRace, resolveRef, laneLabels, IDLE_CAP_MS } from '../src/race.js';
 import { DEFAULT_PRICING } from '../src/pricing.js';
 
 const T0 = Date.parse('2026-03-02T10:00:00Z');
@@ -59,6 +59,32 @@ test('lane refs: files and unknown names', () => {
   assert.throws(() => resolveRef('nope'), /not a file/);
 });
 
+test('lane labels tell twins apart by model, else by number', () => {
+  const l = (agent, models = []) => ({ agent, models });
+  assert.deepEqual(laneLabels([l('Claude Code'), l('Codex')]), ['Claude Code', 'Codex']);
+  assert.deepEqual(laneLabels([l('Claude Code', ['opus']), l('Claude Code', ['sonnet']), l('Codex', ['x'])]), ['Claude Code · opus', 'Claude Code · sonnet', 'Codex']);
+  assert.deepEqual(laneLabels([l('Claude Code', ['opus']), l('Claude Code', ['opus']), l('Claude Code', ['haiku'])]), ['Claude Code · opus #1', 'Claude Code · opus #2', 'Claude Code · haiku']);
+  assert.deepEqual(laneLabels([l('Codex', ['m']), l('Codex', ['m'])]), ['Codex #1', 'Codex #2']);
+});
+
+test('CLI race takes up to six lanes', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ar-race-'));
+  const files = [1, 2, 3].map((n) => {
+    const f = path.join(dir, `s${n}.jsonl`);
+    fs.copyFileSync(DEMO, f);
+    return f;
+  });
+  const out = path.join(dir, 'r3.html');
+  const r = spawnSync(process.execPath, [BIN, 'race', ...files, '-o', out, '--no-open'], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /Claude Code #1 vs Claude Code #2 vs Claude Code #3/);
+  const html = fs.readFileSync(out, 'utf8');
+  const data = JSON.parse(html.match(/<script id="data" type="application\/json">([\s\S]*?)<\/script>/)[1]);
+  assert.equal(data.lanes.length, 3);
+  const many = spawnSync(process.execPath, [BIN, 'race', ...files, ...files, DEMO, '--no-open'], { encoding: 'utf8' });
+  assert.match(many.stderr, /2 to 6 sessions/);
+});
+
 test('CLI race writes a page and rejects bad input', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ar-race-'));
   const other = path.join(dir, 'other.jsonl');
@@ -66,10 +92,10 @@ test('CLI race writes a page and rejects bad input', () => {
   const out = path.join(dir, 'race.html');
   const ok = spawnSync(process.execPath, [BIN, 'race', DEMO, other, '-o', out, '--no-open'], { encoding: 'utf8' });
   assert.equal(ok.status, 0, ok.stderr);
-  assert.match(ok.stdout, /race · Claude Code vs Claude Code/);
+  assert.match(ok.stdout, /race · Claude Code #1 vs Claude Code #2/);
   assert.ok(fs.readFileSync(out, 'utf8').includes('agentreplay race'));
   const same = spawnSync(process.execPath, [BIN, 'race', DEMO, DEMO, '--no-open'], { encoding: 'utf8' });
   assert.match(same.stderr, /same session/);
   const one = spawnSync(process.execPath, [BIN, 'race', DEMO, '--no-open'], { encoding: 'utf8' });
-  assert.match(one.stderr, /needs two sessions/);
+  assert.match(one.stderr, /2 to 6 sessions/);
 });

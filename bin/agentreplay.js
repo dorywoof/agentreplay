@@ -11,7 +11,7 @@ import { renderHtml } from '../src/render.js';
 import { installSkill, uninstallSkill } from '../src/install-skill.js';
 import { collectSessions, analyze, formatReport } from '../src/insights.js';
 import { shareReplay } from '../src/share.js';
-import { resolveRef, buildLane, renderRace } from '../src/race.js';
+import { resolveRef, buildLane, renderRace, laneLabels, MAX_LANES } from '../src/race.js';
 
 const HELP = `
 agentreplay — turn an AI coding session into a shareable replay
@@ -27,9 +27,10 @@ Usage
                                  every agent: spend by project/agent/day, retry
                                  loops, huge tool outputs, cache misses, and what
                                  to change. --days <n>, --agent <name>, --json.
-  agentreplay race <a> <b>       two sessions side by side on one clock, e.g.
-                                 "race claude codex" (newest of each), two log
-                                 files, or two --list numbers ("race 1 3")
+  agentreplay race <a> <b> [c…]  2 to 6 sessions side by side on one clock:
+                                 "race claude codex" (newest of each), "race
+                                 claude claude gemini" (two newest Claude), log
+                                 files, or --list numbers ("race 1 3 4")
   agentreplay install-skill      add a "replay" skill to every agent on this machine
                                  (Claude Code, Codex, Gemini CLI, OpenCode, Copilot,
                                  Cursor…). --project installs into the current repo,
@@ -249,16 +250,23 @@ async function deliver(out, description) {
 }
 
 async function race(refs) {
-  if (refs.length !== 2) fail('race needs two sessions: agentreplay race <a> <b>  (each a log file, a --list number, or an agent like claude / codex)');
+  if (refs.length < 2 || refs.length > MAX_LANES) {
+    fail(`race needs 2 to ${MAX_LANES} sessions: agentreplay race <a> <b> [c …]  (each a log file, a --list number, or an agent like claude / codex)`);
+  }
+  const allSessions = listSessions();
+  const used = new Set();
   if (opts.share && opts['no-redact']) fail('--share refuses --no-redact: an unredacted replay should not be uploaded');
   const picked = refs.map((ref) => {
     try {
-      return resolveRef(ref);
+      const r = resolveRef(ref, { sessions: allSessions, exclude: used });
+      used.add(r.file);
+      return r;
     } catch (e) {
       return fail(e.message);
     }
   });
-  if (picked[0].file === picked[1].file) fail('both lanes are the same session; pick two different ones');
+  const files = picked.map((p) => p.file);
+  if (new Set(files).size !== files.length) fail('the same session is in two lanes; pick different ones');
   let parsed = picked.map((p) => p.parsed || PARSERS[p.agent].parse(p.file));
   for (const s of parsed) {
     if (!s.events.length) fail(`${s.agent} session has no messages to replay`);
@@ -266,27 +274,29 @@ async function race(refs) {
   }
   let redactions = null;
   if (!opts['no-redact']) {
-    // One redactor for both, so a secret seen in one lane is scrubbed in the other too.
+    // One redactor for all lanes, so a secret seen in one lane is scrubbed in every lane.
     const r = createRedactor({ paths: !opts['keep-paths'] });
-    const both = r.redact({ a: parsed[0], b: parsed[1] });
-    parsed = [both.a, both.b];
+    parsed = r.redact(parsed);
     redactions = r.counts;
   }
   const pricing = loadPricing(opts.pricing);
   const lanes = parsed.map((s) => buildLane(s, pricing));
-  const out = path.resolve(opts.out || `race-${refs.map((r) => path.basename(r).replace(/\.[^.]+$/, '').replace(/[^\w-]/g, '').slice(0, 16) || 'session').join('-vs-')}.html`);
+  const labels = laneLabels(lanes);
+  const slug = refs.map((r) => path.basename(r).replace(/\.[^.]+$/, '').replace(/[^\w-]/g, '').slice(0, 16) || 'session').join('-vs-');
+  const out = path.resolve(opts.out || `race-${slug.length > 80 ? `${refs.length}-lanes` : slug}.html`);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, renderRace(lanes, { title: opts.title, redactions }));
 
-  console.log(`${bold('✓')} race · ${lanes.map((l) => l.agent).join(' vs ')}`);
-  for (const l of lanes) {
+  console.log(`${bold('✓')} race · ${labels.join(' vs ')}`);
+  const w = Math.max(...labels.map((l) => l.length));
+  lanes.forEach((l, i) => {
     const time = l.timed ? `${Math.max(1, Math.round(l.final.ms / 60000))} min` : 'no timestamps';
     const cost = l.final.cost != null ? ` · ~$${l.final.cost.toFixed(2)}` : '';
-    console.log(dim(`  ${l.agent.padEnd(12)} ${time} · ${l.final.toolCalls} tool calls (${l.final.errors} failed) · ${l.final.files} files${cost}  ${l.title ? '· ' + l.title.slice(0, 50) : ''}`));
-  }
+    console.log(dim(`  ${labels[i].padEnd(w)}  ${time} · ${l.final.toolCalls} tool calls (${l.final.errors} failed) · ${l.final.files} files${cost}  ${l.title ? '· ' + l.title.slice(0, 50) : ''}`));
+  });
   printRedactions(redactions);
   console.log(`  → ${out}`);
-  await deliver(out, `${lanes.map((l) => l.agent).join(' vs ')} race (agentreplay)`);
+  await deliver(out, `${labels.join(' vs ')} race (agentreplay)`);
 }
 
 function openFile(file) {

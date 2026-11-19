@@ -26,7 +26,7 @@ You just watched an AI agent build a feature in 6 minutes. Now you want to show 
 
 ## Features
 
-- 🏁 **`race`: two agents side by side.** Play a Claude Code session and a Codex session (or any two) in sync on one clock, with live counters and a winner. [More ↓](#race-two-agents-one-clock)
+- 🏁 **`race`: up to six agents side by side.** Play Claude Code, Codex, Gemini CLI… sessions in sync on one clock, with live counters and finishing places. [More ↓](#race-up-to-six-agents-one-clock)
 - 🔗 **`--share`: one-command link.** Uploads the redacted replay as a secret gist and prints a link that plays it.
 - 🔎 **`insights`: see where your tokens went.** One command scans a week of sessions from every agent and finds retry loops, giant tool outputs that every later request re-read, and cache misses, then says what to change. [More ↓](#insights-where-did-your-tokens-go)
 
@@ -55,15 +55,17 @@ npx @dorywoof/agentreplay --agents   # which agents were found on this machine
 
 Requires Node 18+. Nothing is uploaded anywhere: everything happens on your machine.
 
-## Race: two agents, one clock
+## Race: up to six agents, one clock
 
 ```bash
 npx @dorywoof/agentreplay race claude codex          # newest session of each, side by side
-npx @dorywoof/agentreplay race 1 3                   # two sessions from --list
+npx @dorywoof/agentreplay race claude codex gemini   # three agents
+npx @dorywoof/agentreplay race claude claude         # your two newest Claude Code sessions
+npx @dorywoof/agentreplay race 1 3 4                 # sessions from --list
 npx @dorywoof/agentreplay race a.jsonl b.jsonl --share
 ```
 
-Give the same task to two agents (or two models), then play both sessions in sync. Each lane shows a live clock, tool calls, failures, files, lines changed, tokens and cost, and the first to finish gets a badge. Clocks show working time: pauses longer than 2 minutes count as 2 minutes in both lanes, so a coffee break doesn't decide the race. `?at=754` opens the page at 12:34.
+Give the same task to 2–6 agents (or models), then play all the sessions in sync. Each lane shows a live clock, tool calls, failures, files, lines changed, tokens and cost, and lanes get 1st / 2nd / 3rd… as they finish (lanes within 3% of each other share a place). Two lanes from the same agent are told apart by model, or numbered. Clocks show working time: pauses longer than 2 minutes count as 2 minutes in both lanes, so a coffee break doesn't decide the race. `?at=754` opens the page at 12:34.
 
 ## Insights: where did your tokens go?
 

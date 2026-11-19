@@ -18,7 +18,7 @@ export const IDLE_CAP_MS = 2 * 60_000;
  * A lane reference: a log file path, a number from `--list`, or an agent name
  * (its newest session that has messages).
  */
-export function resolveRef(ref, { sessions = null } = {}) {
+export function resolveRef(ref, { sessions = null, exclude = new Set() } = {}) {
   const all = () => (sessions ||= listSessions());
   if (isFile(String(ref).split('#')[0])) {
     const file = path.resolve(ref);
@@ -32,7 +32,8 @@ export function resolveRef(ref, { sessions = null } = {}) {
     return s;
   }
   if (PARSERS[ref]) {
-    for (const s of all().filter((x) => x.agent === ref).slice(0, 25)) {
+    // "race claude claude" = the two newest Claude sessions: skip ones already picked.
+    for (const s of all().filter((x) => x.agent === ref && !exclude.has(x.file)).slice(0, 25)) {
       try {
         const parsed = PARSERS[ref].parse(s.file);
         if (parsed.events.length) return { ...s, parsed };
@@ -103,7 +104,27 @@ export function buildLane(session, pricing) {
   };
 }
 
+export const MAX_LANES = 6;
+
+/**
+ * What each lane is called. The agent name, unless two lanes share it: then the
+ * model tells them apart (Claude Code · opus vs Claude Code · sonnet), or a number.
+ */
+export function laneLabels(lanes) {
+  const model = (l) => (l.models || []).join(', ');
+  const labels = lanes.map((l) => {
+    const twins = lanes.filter((x) => x.agent === l.agent);
+    if (twins.length < 2) return l.agent;
+    // The model only helps when it differs between the lanes of this agent.
+    return model(l) && new Set(twins.map(model)).size > 1 ? `${l.agent} · ${model(l)}` : l.agent;
+  });
+  // Still ambiguous (same agent and model): number them.
+  return labels.map((x, i) => (labels.filter((y) => y === x).length > 1 ? `${x} #${labels.slice(0, i + 1).filter((y) => y === x).length}` : x));
+}
+
 export function renderRace(lanes, { title = null, redactions = null } = {}) {
-  const name = title || lanes.map((l) => l.agent).join(' vs ');
+  const labels = laneLabels(lanes);
+  lanes = lanes.map((l, i) => ({ ...l, label: labels[i] }));
+  const name = title || labels.join(' vs ');
   return fillTemplate('./race.html', `${name} · agentreplay race`, { title: name, lanes, redactions, generator: generator() });
 }
