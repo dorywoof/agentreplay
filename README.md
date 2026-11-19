@@ -65,13 +65,18 @@ agentreplayer setup            # undo with: agentreplayer setup --remove
 
 Restart Claude Code and you get three things, all running locally:
 
-- **A status line** with what this session cost, how big the context is, and what each message costs to send. Over 150k tokens it suggests starting fresh, because every message re-sends the whole conversation.
-  `$3.20 · 162k ctx · each msg ~$0.03 · ⚠ long session: /clear or a new one saves money`
+- **A status line** with what the session cost, today's total across every agent, the context size, and what each message costs to send. On a Pro/Max subscription it leads with your 5-hour and weekly limits instead, since that's what you actually spend. Past 150k tokens it suggests starting fresh, because every message re-sends the whole conversation.
+  `$3.20 · today ~$41 · 162k ctx · each msg ~$0.03 · long session: /clear saves money`
+  `5h 76% (resets 1h23m) · 7d 31% · ~$20 API · 162k ctx · long session: /clear saves limit`
 - **A cold-cache guard.** When you come back from a break, the prompt cache has expired, and the conversation is big, your next message would re-process all of it at full price. agentreplayer stops that message once and tells you what it would cost. Send it again to go ahead, or `/clear` to continue for less.
 - **A summary when a session ends**, plus a replay of it saved to `~/.agentreplayer/replays/`:
   `agentreplayer: 42 min · 118 tool calls · 6 files +412 −80 · ~$6.10`
 
-`setup` only adds its own entries to `~/.claude/settings.json`. It keeps your other hooks, never replaces an existing status line (unless you pass `--force`), and saves a backup first. Pick parts with `--only statusline,guard,summary`.
+**Already have a status line?** It stays. `setup` keeps your command and adds agentreplayer's segment after it: on the same row when there's room, otherwise on a row below. `setup --remove` puts your original back exactly. Use `--force` to replace it instead.
+
+The status line is plain text and colour, with no emoji or Nerd Font glyphs, so it lines up in every terminal. When the terminal is narrow it drops the least important pieces first; the context size always stays. Today's total is computed in the background and cached, so the line never waits for it.
+
+`setup` only adds its own entries to `~/.claude/settings.json`. It keeps your other hooks and saves a backup first. Pick parts with `--only statusline,guard,summary`.
 
 ## Race: up to six agents, one clock
 

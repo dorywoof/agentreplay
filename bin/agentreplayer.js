@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
 import { listSessions, detectAgent, preview, PARSERS } from '../src/discover.js';
 import { createRedactor } from '../src/redact.js';
@@ -12,8 +12,9 @@ import { installSkill, uninstallSkill } from '../src/install-skill.js';
 import { collectSessions, analyze, formatReport } from '../src/insights.js';
 import { shareReplay } from '../src/share.js';
 import { resolveRef, buildLane, renderRace, laneLabels, MAX_LANES } from '../src/race.js';
-import { statusLine, promptGuard, summaryLine, replaysDir } from '../src/live.js';
-import { setup, unsetup, settingsPath, PARTS } from '../src/setup.js';
+import { statusLine, promptGuard, summaryLine, replaysDir, shellFor, combineLines } from '../src/live.js';
+import { setup, unsetup, settingsPath, PARTS, readWrapped } from '../src/setup.js';
+import { readToday, kickRefresh, refreshToday } from '../src/today.js';
 import { parse as parseClaude } from '../src/parsers/claude.js';
 import { fileURLToPath } from 'node:url';
 
@@ -84,6 +85,8 @@ const { values: opts, positionals } = parseArgs({
     'no-open': { type: 'boolean' },
     share: { type: 'boolean' },
     remove: { type: 'boolean' },
+    wrap: { type: 'boolean' },
+    'refresh-today': { type: 'boolean' },
     only: { type: 'string' },
     help: { type: 'boolean', short: 'h' },
   },
@@ -121,14 +124,45 @@ const parseJson = (s) => {
 
 /** Runs inside Claude Code: never throw, never print noise. */
 async function live(kind) {
-  const input = parseJson(await readStdin());
   const pricing = loadPricing(opts.pricing);
-  if (kind === 'statusline') {
+  if (kind === 'statusline' && opts['refresh-today']) {
     try {
-      process.stdout.write(statusLine(input, pricing, { color: !process.env.NO_COLOR }) + '\n');
+      refreshToday(pricing);
     } catch {
-      process.stdout.write('\n');
+      /* next status line run will try again */
     }
+    return;
+  }
+  const rawInput = await readStdin();
+  const input = parseJson(rawInput);
+  if (kind === 'statusline') {
+    const binPath = fs.realpathSync(fileURLToPath(import.meta.url));
+    const width = Number(process.env.COLUMNS) || null;
+    let ours = '';
+    try {
+      const today = readToday();
+      if (today.stale) kickRefresh(binPath);
+      ours = statusLine(input, pricing, { color: !process.env.NO_COLOR, today: today.value, width });
+    } catch {
+      /* show whatever else we have */
+    }
+    let out = ours;
+    if (opts.wrap) {
+      // The user's own status line runs first, in the shell Claude Code would use, with the same input.
+      const w = readWrapped();
+      let theirs = '';
+      if (w) {
+        try {
+          const [cmd, args] = shellFor(w.command);
+          const r = spawnSync(cmd, args, { input: rawInput, encoding: 'utf8', timeout: 3000, windowsHide: true, env: process.env });
+          if (r.status === 0) theirs = r.stdout || '';
+        } catch {
+          /* theirs failed; ours still shows */
+        }
+      }
+      out = combineLines(theirs, ours, width);
+    }
+    process.stdout.write((out || ' ') + '\n');
     return;
   }
   if (kind === 'prompt') {

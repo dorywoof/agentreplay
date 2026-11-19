@@ -13,13 +13,28 @@ export function settingsPath(env = process.env) {
   return path.join(env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'settings.json');
 }
 
+/**
+ * Where the status line we wrap is kept, next to the settings file it came from,
+ * so `--remove` can put it back exactly (and each CLAUDE_CONFIG_DIR keeps its own).
+ */
+export const wrapFile = (settingsFile = settingsPath()) => path.join(path.dirname(settingsFile), 'agentreplayer-statusline.json');
+
+export function readWrapped(file = wrapFile()) {
+  try {
+    const w = JSON.parse(fs.readFileSync(file, 'utf8'));
+    return w && typeof w.command === 'string' ? w : null;
+  } catch {
+    return null;
+  }
+}
+
 /** A shell command that runs this CLI with absolute paths (forward slashes work in cmd, PowerShell and bash). */
 export function commandFor(nodePath, binPath, args) {
   const q = (p) => `"${String(p).replace(/\\/g, '/')}"`;
   return `${q(nodePath)} ${q(binPath)} ${args}`;
 }
 
-const isOurs = (cmd, args) => typeof cmd === 'string' && /agentreplayer/i.test(cmd) && cmd.trimEnd().endsWith(args);
+const isOurs = (cmd, args) => typeof cmd === 'string' && /agentreplayer/i.test(cmd) && (cmd.trimEnd().endsWith(args) || cmd.trimEnd().endsWith(`${args} --wrap`));
 
 const HOOKS = {
   guard: { event: 'UserPromptSubmit', args: 'hook prompt', timeout: 10 },
@@ -67,21 +82,33 @@ function dropHook(settings, event, args) {
 /**
  * @returns {{ part: string, status: 'added'|'updated'|'kept'|'skipped'|'removed'|'absent', note?: string }[]}
  */
-export function setup({ file = settingsPath(), nodePath = process.execPath, binPath, parts = PARTS, force = false, refreshInterval = 30 } = {}) {
+export function setup({ file = settingsPath(), nodePath = process.execPath, binPath, parts = PARTS, force = false, refreshInterval = 30, wrapPath = wrapFile(file) } = {}) {
   const settings = readSettings(file);
   const results = [];
 
   if (parts.includes('statusline')) {
-    const command = commandFor(nodePath, binPath, 'statusline');
     const cur = settings.statusLine;
-    if (cur && !isOurs(cur.command, 'statusline') && !force) {
-      results.push({ part: 'statusline', status: 'skipped', note: 'you already have a status line (use --force to replace it)' });
-    } else {
-      const next = { type: 'command', command, refreshInterval };
-      const same = cur && JSON.stringify(cur) === JSON.stringify(next);
-      settings.statusLine = next;
-      results.push({ part: 'statusline', status: same ? 'kept' : cur ? 'updated' : 'added' });
+    const foreign = cur && !isOurs(cur.command, 'statusline');
+    // Somebody else's status line: keep it and add ours after it (--force replaces it instead).
+    const wrapping = (foreign && !force) || (!foreign && cur?.command?.endsWith('--wrap') && !!readWrapped(wrapPath));
+    if (foreign && !force) {
+      fs.mkdirSync(path.dirname(wrapPath), { recursive: true });
+      fs.writeFileSync(wrapPath, JSON.stringify(cur, null, 2));
     }
+    const base = wrapping ? readWrapped(wrapPath) : null;
+    const next = {
+      ...(base?.padding != null ? { padding: base.padding } : {}),
+      type: 'command',
+      command: commandFor(nodePath, binPath, wrapping ? 'statusline --wrap' : 'statusline'),
+      refreshInterval: base?.refreshInterval ? Math.min(base.refreshInterval, refreshInterval) : refreshInterval,
+    };
+    const same = cur && JSON.stringify(cur) === JSON.stringify(next);
+    settings.statusLine = next;
+    results.push({
+      part: 'statusline',
+      status: same ? 'kept' : cur && !foreign ? 'updated' : 'added',
+      note: foreign && !force ? 'kept your status line and added ours after it' : foreign ? 'replaced your status line (--force)' : undefined,
+    });
   }
 
   for (const part of ['guard', 'summary']) {
@@ -97,13 +124,20 @@ export function setup({ file = settingsPath(), nodePath = process.execPath, binP
   return results;
 }
 
-export function unsetup({ file = settingsPath() } = {}) {
+export function unsetup({ file = settingsPath(), wrapPath = wrapFile(file) } = {}) {
   if (!fs.existsSync(file)) return PARTS.map((part) => ({ part, status: 'absent' }));
   const settings = readSettings(file);
   const results = [];
   if (settings.statusLine && isOurs(settings.statusLine.command, 'statusline')) {
-    delete settings.statusLine;
-    results.push({ part: 'statusline', status: 'removed' });
+    const original = settings.statusLine.command.trimEnd().endsWith('--wrap') ? readWrapped(wrapPath) : null;
+    if (original) settings.statusLine = original;
+    else delete settings.statusLine;
+    try {
+      fs.rmSync(wrapPath, { force: true });
+    } catch {
+      /* fine */
+    }
+    results.push({ part: 'statusline', status: 'removed', note: original ? 'your own status line is back' : undefined });
   } else results.push({ part: 'statusline', status: 'absent' });
   for (const part of ['guard', 'summary']) {
     const { event, args } = HOOKS[part];
