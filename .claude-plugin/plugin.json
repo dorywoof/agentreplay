@@ -1,7 +1,7 @@
 {
   "name": "agentreplayer",
   "description": "Turn this Claude Code session (or any coding-agent session) into a shareable, video-like HTML replay with diffs, cost stats and automatic secret redaction. Use /agentreplayer:replay.",
-  "version": "0.11.3",
+  "version": "0.11.4",
   "author": {
     "name": "dorywoof",
     "url": "https://github.com/dorywoof"

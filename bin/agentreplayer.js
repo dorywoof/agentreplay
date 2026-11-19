@@ -515,7 +515,7 @@ async function race(refs) {
 function openFile(file) {
   const [cmd, args] =
     process.platform === 'win32'
-      ? ['cmd', ['/c', 'start', '""', file]]
+      ? ['cmd', ['/c', 'start', '""', `"${file}"`]]
       : process.platform === 'darwin'
         ? ['open', [file]]
         : ['xdg-open', [file]];

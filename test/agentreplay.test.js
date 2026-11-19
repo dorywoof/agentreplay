@@ -189,3 +189,17 @@ test('Codex: plain-text failed tool outputs are marked as errors', () => {
   const s = codex.parse(f);
   assert.deepEqual(s.events.filter((e) => e.kind === 'tool').map((e) => e.isError), [true, false, true]);
 });
+
+test('npm, GitLab and Hugging Face tokens are redacted', async () => {
+  const { createRedactor } = await import('../src/redact.js');
+  // Built at run time so secret scanners don't mistake these fakes for real tokens.
+  const fake = (prefix, body) => prefix + body;
+  const out = createRedactor({}).redact({
+    a: `//registry.npmjs.org/:_authToken=${fake('npm_', 'abcdefghijklmnopqrstuvwxyz0123456789')}`,
+    b: fake('glpat-', 'abcdefghij1234567890'),
+    c: fake('hf_', 'abcdefghijklmnopqrstuvwxyzABCDEFGH'),
+  });
+  assert.ok(!out.a.includes('npm_abc'), out.a);
+  assert.ok(!out.b.includes('glpat-'), out.b);
+  assert.ok(!out.c.includes('hf_abc'), out.c);
+});

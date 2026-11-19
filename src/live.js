@@ -61,7 +61,7 @@ export function lastRequest(transcriptPath) {
 
 /** USD to send `ctx` tokens again: cold (re-written to cache) vs warm (read from cache). */
 export function resendCost(ctx, model, pricing, ttlMs = TTL_5M) {
-  const r = rateFor(model, pricing);
+  const r = rateFor(model, pricing, ctx);
   if (!r || !ctx) return null;
   const cacheRead = r.cacheRead ?? r.input * 0.1;
   const writeMult = ttlMs >= TTL_1H ? 2 : 1.25;

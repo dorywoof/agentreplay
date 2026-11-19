@@ -222,8 +222,13 @@ export function analyze({ sessions, since, now, days, failed = 0 }, pricing) {
         }
       });
     }
-    if (reported != null) each(firstT, (b) => (b.cost += reported));
-    if (!reqs.length && s.usage) {
+    if (reported != null) {
+      // The agent's own total covers the whole session: count only the share of its tokens inside the window.
+      const all = sum(s.requestLog || [], (r) => r.ctx + r.output);
+      const share = all ? sum(reqs, (r) => r.ctx + r.output) / all : firstT == null || firstT >= since ? 1 : 0;
+      if (share) each(firstT, (b) => (b.cost += reported * share));
+    }
+    if (!(s.requestLog || []).length && s.usage) {
       // Sessions with usage totals but no per-request log.
       const u = s.usage;
       const tokens = u.input + u.output + u.cacheRead + u.cacheWrite + u.cacheWrite1h;
@@ -262,7 +267,7 @@ export function analyze({ sessions, since, now, days, failed = 0 }, pricing) {
       if (tok < BIG_OUTPUT_TOKENS) continue;
       const t = ev.endT ?? ev.t;
       const later = t != null ? carriedRequests(reqs, t) : [];
-      const costs = later.map((r) => requestCost({ model: r.model, input: 0, output: 0, cacheRead: tok, cacheWrite: 0 }, pricing));
+      const costs = later.map((r) => requestCost({ model: r.model, ctx: r.ctx, input: 0, output: 0, cacheRead: tok, cacheWrite: 0 }, pricing));
       R.bloat.push({
         project,
         agent,
@@ -404,7 +409,7 @@ export function formatReport(R, { bold = (s) => s, dim = (s) => s, width = 72 } 
   L.push('');
   L.push(`${bold('Spend')}  ${costTxt(T) || dim('no priced models')}${T.cost ? dim('  (API list prices; subscriptions bill differently)') : ''}`);
   if (T.inputTokens) {
-    // Token shares and dollar shares differ a lot: a cache read costs 0.1x input, a cache write 1.25x (5 min) or 2x (1 h).
+    // Token shares and dollar shares differ a lot: a cache read costs a small fraction of input, a cache write more than input.
     const pct = (v, all) => `${Math.round((v / all) * 100)}%`;
     const split = (read, write, rest, all) => `${pct(read, all)} cache reads · ${pct(write, all)} cache writes · ${pct(rest, all)} uncached`;
     L.push(dim(`  input tokens: ${split(T.cacheRead, T.cacheWrite, T.inputTokens - T.cacheRead - T.cacheWrite, T.inputTokens)}`));

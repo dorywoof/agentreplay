@@ -1,4 +1,4 @@
-import { estimateCost } from './pricing.js';
+import { estimateCost, requestsCost } from './pricing.js';
 
 const IDLE_CAP_MS = 5 * 60 * 1000;
 
@@ -59,8 +59,21 @@ export function computeStats(session, pricing) {
       peakContext: session.peakContext || 0,
       requests: session.requests || 0,
     },
-    cost: session.reportedCost ?? estimateCost(session.usageByModel, pricing),
+    cost: session.reportedCost ?? sessionCost(session, pricing),
     costReported: session.reportedCost != null,
     timesSynthetic: !!session.timesSynthetic,
   };
+}
+
+/**
+ * Priced request by request when the request log holds all of the session's
+ * tokens (so long-prompt tiers apply per request), else from the per-model totals.
+ */
+function sessionCost(session, pricing) {
+  const log = session.requestLog || [];
+  const u = session.usage;
+  const logged = log.reduce((a, r) => a + r.ctx + r.output, 0);
+  const all = u.input + u.output + u.cacheRead + u.cacheWrite + u.cacheWrite1h;
+  if (log.length && logged === all) return requestsCost(log, pricing);
+  return estimateCost(session.usageByModel, pricing);
 }
