@@ -26,6 +26,18 @@ export const DEFAULT_PRICING = {
   'claude-sonnet-4-6': { input: 3, output: 15 },
   'claude-haiku-5-5': { input: 0.1, output: 0.5, above: { tokens: 100_000, input: 0.5, output: 2.5 } },
   'claude-haiku-4-5': { input: 1, output: 5 },
+  // OpenAI (Codex). Standard tier; prompts over 272k input tokens use `above`.
+  'gpt-6.2-astra-law': { input: 8, output: 40, cacheRead: 0.4, above: { tokens: 272_000, input: 16, output: 60, cacheRead: 0.8 } },
+  'gpt-6.2-astra': { input: 8, output: 40, cacheRead: 0.4, above: { tokens: 272_000, input: 16, output: 60, cacheRead: 0.8 } },
+  'gpt-6.2-sol': { input: 2, output: 10, cacheRead: 0.1, above: { tokens: 272_000, input: 4, output: 15, cacheRead: 0.2 } },
+  'gpt-6.1-sol': { input: 2, output: 10, cacheRead: 0.1, above: { tokens: 272_000, input: 4, output: 15, cacheRead: 0.2 } },
+  'gpt-6.1-terra': { input: 1, output: 5, cacheRead: 0.05, above: { tokens: 272_000, input: 2, output: 7.5, cacheRead: 0.1 } },
+  'gpt-6-astra-law': { input: 10, output: 50, cacheRead: 1, above: { tokens: 272_000, input: 20, output: 75, cacheRead: 2 } },
+  'gpt-6-astra': { input: 10, output: 50, cacheRead: 1, above: { tokens: 272_000, input: 20, output: 75, cacheRead: 2 } },
+  'gpt-6-sol': { input: 2, output: 10, cacheRead: 0.2, above: { tokens: 272_000, input: 4, output: 15, cacheRead: 0.4 } },
+  'gpt-6-luna': { input: 0.1, output: 0.5, cacheRead: 0.01, above: { tokens: 272_000, input: 0.2, output: 0.75, cacheRead: 0.02 } },
+  'gpt-6-cyber': { input: 20, output: 100, cacheRead: 2, above: { tokens: 272_000, input: 40, output: 150, cacheRead: 4 } },
+  'gpt-6-rosalind': { input: 10, output: 50, cacheRead: 1, above: { tokens: 272_000, input: 20, output: 75, cacheRead: 2 } },
 };
 
 export function loadPricing(file) {
@@ -43,9 +55,9 @@ export function rateFor(model, pricing, ctx = 0) {
   if (!model) return null;
   const id = String(model).toLowerCase();
   const at = id.indexOf('claude-');
-  const bare = at > 0 ? id.slice(at) : id;
+  const names = [id, id.slice(id.lastIndexOf('/') + 1), at > 0 ? id.slice(at) : id];
   const keys = Object.keys(pricing)
-    .filter((k) => id.startsWith(k) || bare.startsWith(k))
+    .filter((k) => names.some((n) => n.startsWith(k)))
     .sort((a, b) => b.length - a.length);
   if (!keys.length) return null;
   const r = pricing[keys[0]];

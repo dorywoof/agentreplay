@@ -56,3 +56,10 @@ test('usage totals are not added again when the requests fell outside the window
   assert.equal(R.total.tokens, 0);
   assert.equal(R.total.toolCalls, 1);
 });
+
+test('OpenAI models have prices, with the long-context tier over 272k', () => {
+  assert.equal(rateFor('openai/gpt-6.2-sol', DEFAULT_PRICING), DEFAULT_PRICING['gpt-6.2-sol']);
+  assert.notEqual(rateFor('gpt-6-astra', DEFAULT_PRICING), DEFAULT_PRICING['gpt-6-astra-law']);
+  near(requestCost({ model: 'gpt-6.1-sol', input: 10_000, cacheRead: 100_000, output: 1_000 }, DEFAULT_PRICING), (10_000 * 2 + 100_000 * 0.1 + 1_000 * 10) / 1e6);
+  near(requestCost({ model: 'gpt-6.1-sol', input: 10_000, cacheRead: 300_000, output: 1_000 }, DEFAULT_PRICING), (10_000 * 4 + 300_000 * 0.2 + 1_000 * 15) / 1e6);
+});
