@@ -179,7 +179,7 @@ function main() {
     return;
   }
 
-  const out = path.resolve(opts.out || `replay-${String(session.id).replace(/[^w-]/g, '').slice(0, 12) || 'session'}.html`);
+  const out = path.resolve(opts.out || `replay-${String(session.id).replace(/[^\w-]/g, '').slice(0, 12) || 'session'}.html`);
   fs.mkdirSync(path.dirname(out), { recursive: true });
   fs.writeFileSync(out, renderHtml(session, stats, { redactions }));
 

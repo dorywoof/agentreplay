@@ -390,6 +390,7 @@ footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--rule);
   function play() { if (shown >= E.length) { at = 0; showUpTo(0); } playing = true; last = performance.now(); requestAnimationFrame(tick); ui(); }
   function pause() { playing = false; ui(); }
   function seekTo(n) {
+    n = Math.max(0, Math.min(E.length, n));
     pause();
     showUpTo(n, false);
     at = n > 0 ? sched[n - 1] : 0;

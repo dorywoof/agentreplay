@@ -31,11 +31,7 @@ export function createRedactor({ paths = true, emails = true } = {}) {
   const counts = {};
   const home = os.homedir();
   const user = path.basename(home);
-  const homeVariants = paths
-    ? [...new Set([home, home.replace(/\\/g, '/'), home.replace(/\\/g, '\\\\'), toPosixDrive(home)])].filter(
-        (h) => h && h.length > 3,
-      )
-    : [];
+  const homeRe = paths ? homePattern(home) : null;
 
   function bump(kind) {
     counts[kind] = (counts[kind] || 0) + 1;
@@ -91,11 +87,11 @@ export function createRedactor({ paths = true, emails = true } = {}) {
         return '[email]';
       });
     }
-    for (const h of homeVariants) {
-      if (s.includes(h)) {
+    if (homeRe) {
+      s = s.replace(homeRe, () => {
         bump('home path');
-        s = s.split(h).join('~');
-      }
+        return '~';
+      });
     }
     // Claude Code project folder names encode the home path with dashes.
     if (paths && user && user.length > 2) {
@@ -126,9 +122,25 @@ export function createRedactor({ paths = true, emails = true } = {}) {
   return { redact, counts };
 }
 
-function toPosixDrive(p) {
-  const m = p.match(/^([A-Za-z]):\\(.*)$/);
-  return m ? `/${m[1].toLowerCase()}/${m[2].replace(/\\/g, '/')}` : null;
+/**
+ * The home folder in every spelling a log can hold it: / or \ separators,
+ * JSON-escaped backslashes (\\ or \\\\ when JSON is nested in JSON), Git Bash
+ * style /c/Users/…, and any letter case on Windows.
+ */
+export function homePattern(home) {
+  const sep = '(?:\\\\+|/+)';
+  const parts = home.split(/[\\/]+/).filter(Boolean);
+  let prefix = '';
+  if (/^[A-Za-z]:$/.test(parts[0] || '')) {
+    const d = parts.shift()[0];
+    prefix = `(?:${d}:|/${d})${sep}`;
+  } else {
+    prefix = sep;
+  }
+  if (!parts.length || parts.join('').length < 3) return null;
+  const body = parts.map(escapeRe).join(sep);
+  // Windows paths are case-insensitive, so logs often hold c:\users\… too.
+  return new RegExp(`${prefix}${body}(?![A-Za-z0-9_])`, prefix !== sep ? 'gi' : 'g');
 }
 
 function escapeRe(s) {

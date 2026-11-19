@@ -140,6 +140,12 @@ function parseOutput(output) {
     pieces.push(chunk);
   }
   text = pieces.join('\n').trim();
+  // Plain-text envelopes: "Script failed\nWall time…", "Process exited with code 1", "Exit code: 1"
+  if (exitCode == null) {
+    const m = text.match(/^(?:Process exited with code|Exit code:)\s*(-?\d+)/m);
+    if (m) exitCode = Number(m[1]);
+    else if (/^Script (?:failed|error)\b/.test(text)) exitCode = 1;
+  }
   return { text, exitCode };
 }
 

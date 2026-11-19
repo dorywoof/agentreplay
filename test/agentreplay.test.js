@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import * as claude from '../src/parsers/claude.js';
 import * as codex from '../src/parsers/codex.js';
 import { detectAgent } from '../src/discover.js';
-import { createRedactor } from '../src/redact.js';
+import { createRedactor, homePattern } from '../src/redact.js';
 import { computeStats } from '../src/stats.js';
 import { DEFAULT_PRICING, estimateCost } from '../src/pricing.js';
 import { renderHtml } from '../src/render.js';
@@ -147,4 +147,45 @@ test('does not treat short or ordinary values as echoed secrets', () => {
   const { redact } = createRedactor({ paths: false });
   const out = redact({ a: 'TOKEN=abc12', b: 'abc12 appears in normal text' });
   assert.equal(out.b, 'abc12 appears in normal text');
+});
+
+test('redacts the home path in every spelling a log can hold', () => {
+  const B = '\\';
+  const p = (sep, ...parts) => parts.join(sep);
+  const win = homePattern(p(B, 'C:', 'Users', 'alice'));
+  const clean = (s) => s.replace(win, '~');
+  assert.equal(clean(p(B, 'C:', 'Users', 'alice', 'proj')), p(B, '~', 'proj'));
+  assert.equal(clean(p(B, 'c:', 'users', 'Alice', 'proj')), p(B, '~', 'proj'));
+  assert.equal(clean(p(B + B, 'C:', 'Users', 'alice', 'proj')), p(B + B, '~', 'proj'));
+  assert.equal(clean(p(B.repeat(4), 'C:', 'Users', 'alice', 'x')), p(B.repeat(4), '~', 'x'));
+  assert.equal(clean('C:/Users/alice/proj and /c/Users/alice/x'), '~/proj and ~/x');
+  assert.equal(clean(p(B, 'C:', 'Users', 'alice2', 'proj')), p(B, 'C:', 'Users', 'alice2', 'proj'));
+  const nix = homePattern('/home/bob');
+  assert.equal('/home/bob/src and /home/bobby'.replace(nix, '~'), '~/src and /home/bobby');
+});
+
+test('Claude: compaction summaries and task notifications are not prompts; title falls back to first prompt', () => {
+  const base = { sessionId: 's', cwd: '/x', timestamp: '2026-01-01T00:00:00Z' };
+  const f = tmpJsonl([
+    { ...base, type: 'user', uuid: '1', isCompactSummary: true, message: { role: 'user', content: 'This session is being continued…' } },
+    { ...base, type: 'user', uuid: '2', message: { role: 'user', content: '<task-notification><status>done</status></task-notification>' } },
+    { ...base, type: 'user', uuid: '3', message: { role: 'user', content: 'add dark mode\nplease' } },
+  ]);
+  const s = claude.parse(f);
+  assert.deepEqual(s.events.map((e) => e.text), ['add dark mode\nplease']);
+  assert.equal(s.title, 'add dark mode');
+});
+
+test('Codex: plain-text failed tool outputs are marked as errors', () => {
+  const ts = '2026-01-01T00:00:00Z';
+  const call = (id) => ({ timestamp: ts, type: 'response_item', payload: { type: 'custom_tool_call', name: 'exec', call_id: id, input: 'x()' } });
+  const out = (id, text) => ({ timestamp: ts, type: 'response_item', payload: { type: 'custom_tool_call_output', call_id: id, output: [{ type: 'input_text', text }] } });
+  const f = tmpJsonl([
+    { timestamp: ts, type: 'session_meta', payload: { id: 'z' } },
+    call('a'), out('a', 'Script failed\nWall time 0.0 seconds\nOutput:\nTypeError'),
+    call('b'), out('b', 'Script completed\nWall time 0.1 seconds\nOutput:\nok'),
+    call('c'), out('c', 'Process exited with code 2\nOutput:\nnope'),
+  ]);
+  const s = codex.parse(f);
+  assert.deepEqual(s.events.filter((e) => e.kind === 'tool').map((e) => e.isError), [true, false, true]);
 });

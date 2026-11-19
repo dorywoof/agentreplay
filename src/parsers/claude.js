@@ -29,12 +29,15 @@ export function parse(file, { includeSidechains = false } = {}) {
 
   const toolById = new Map();
   const seenMessageIds = new Set();
+  let firstPrompt = null;
 
   for (const r of records) {
     if (r.type === 'ai-title' && r.aiTitle) session.title = r.aiTitle;
     if (r.type === 'summary' && r.summary && !session.title) session.title = r.summary;
     if (r.type !== 'user' && r.type !== 'assistant') continue;
     if (r.isSidechain && !includeSidechains) continue;
+    // The auto-generated summary written when the context is compacted is not a prompt.
+    if (r.isCompactSummary) continue;
     if (!session.cwd && r.cwd) session.cwd = r.cwd;
     if (!session.branch && r.gitBranch) session.branch = r.gitBranch;
 
@@ -65,9 +68,10 @@ export function parse(file, { includeSidechains = false } = {}) {
       if (r.type === 'user' && b.type === 'text') {
         if (r.isMeta) continue;
         const text = stripHarnessTags(b.text || '');
-        if (!text || /^<(command-|local-command|bash-|user-prompt-submit-hook)/.test(text)) continue;
+        if (!text || /^<(command-|local-command|bash-|user-prompt-submit-hook|task-notification)/.test(text)) continue;
         if (text.startsWith('Caveat: The messages below')) continue;
         session.events.push({ kind: 'user', t: ts, text });
+        firstPrompt ||= text;
         continue;
       }
       if (r.type !== 'assistant') continue;
@@ -83,6 +87,8 @@ export function parse(file, { includeSidechains = false } = {}) {
     }
   }
 
+  // Older logs and short sessions have no ai-title/summary record: use the first prompt.
+  if (!session.title && firstPrompt) session.title = firstPrompt.split('\n')[0].slice(0, 80);
   session.models = [...session.models];
   return session;
 }
