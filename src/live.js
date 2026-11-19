@@ -1,0 +1,185 @@
+/**
+ * Live helpers for Claude Code: a status line, a "your cache went cold" prompt
+ * guard, and an end-of-session summary. They run often, so they read only the
+ * tail of the transcript instead of parsing the whole session.
+ */
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { rateFor } from './pricing.js';
+
+export const LONG_CTX = 100_000; // "long" — every message re-reads this much
+export const HUGE_CTX = 150_000; // "start fresh" territory
+export const GUARD_MIN_CTX = 50_000; // smaller prompts are cheap to re-cache, don't interrupt
+const TAIL_BYTES = 512 * 1024;
+const TTL_5M = 5 * 60_000;
+const TTL_1H = 60 * 60_000;
+
+/** Last `bytes` of a file as complete lines (the first, possibly partial, line is dropped). */
+export function readTailLines(file, bytes = TAIL_BYTES) {
+  const fd = fs.openSync(file, 'r');
+  try {
+    const size = fs.fstatSync(fd).size;
+    const start = Math.max(0, size - bytes);
+    const buf = Buffer.alloc(size - start);
+    fs.readSync(fd, buf, 0, buf.length, start);
+    const lines = buf.toString('utf8').split('\n');
+    if (start > 0) lines.shift();
+    return lines.filter((l) => l.trim());
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+/**
+ * What the most recent API request of a Claude Code session looked like:
+ * prompt size (ctx), model, when it happened, and how long its cache lives.
+ */
+export function lastRequest(transcriptPath) {
+  let lines;
+  try {
+    lines = readTailLines(transcriptPath);
+  } catch {
+    return null;
+  }
+  for (let i = lines.length - 1; i >= 0; i--) {
+    let r;
+    try {
+      r = JSON.parse(lines[i]);
+    } catch {
+      continue;
+    }
+    const u = r.type === 'assistant' && !r.isSidechain && r.message?.usage;
+    if (!u || r.message.model === '<synthetic>') continue;
+    const ctx = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+    if (!ctx) continue;
+    const oneHour = (u.cache_creation?.ephemeral_1h_input_tokens || 0) > 0;
+    return { ctx, model: r.message.model || null, t: Date.parse(r.timestamp) || null, ttlMs: oneHour ? TTL_1H : TTL_5M };
+  }
+  return null;
+}
+
+/** USD to send `ctx` tokens again: cold (re-written to cache) vs warm (read from cache). */
+export function resendCost(ctx, model, pricing, ttlMs = TTL_5M) {
+  const r = rateFor(model, pricing);
+  if (!r || !ctx) return null;
+  const cacheRead = r.cacheRead ?? r.input * 0.1;
+  const writeMult = ttlMs >= TTL_1H ? 2 : 1.25;
+  return { cold: (ctx * r.input * writeMult) / 1e6, warm: (ctx * cacheRead) / 1e6 };
+}
+
+const usd = (n) => (n >= 10 ? `$${n.toFixed(0)}` : `$${n.toFixed(2)}`);
+const tok = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : `${Math.round(n / 1000)}k`);
+const mins = (ms) => `${Math.round(ms / 60_000)}m`;
+
+// ---------------------------------------------------------------------------
+// status line
+// ---------------------------------------------------------------------------
+
+/**
+ * One status line from Claude Code's statusline JSON.
+ *   $3.20 · 142k ctx · each msg ~$0.11 · ⚠ long session: /clear saves money
+ *   $3.20 · 142k ctx · ❄ cache cold (12m idle): next msg ~$1.38
+ */
+export function statusLine(input, pricing, { now = Date.now(), color = true } = {}) {
+  const c = (code, s) => (color ? `\x1b[${code}m${s}\x1b[0m` : s);
+  const dim = (s) => c('2', s);
+  const model = input?.model?.id || null;
+  const parts = [];
+
+  const cost = input?.cost?.total_cost_usd;
+  if (typeof cost === 'number') parts.push(usd(cost));
+
+  // Context: Claude Code's own numbers first, the transcript as a fallback.
+  const cu = input?.context_window?.current_usage;
+  let ctx = cu ? (cu.input_tokens || 0) + (cu.cache_creation_input_tokens || 0) + (cu.cache_read_input_tokens || 0) : 0;
+  const last = input?.transcript_path ? lastRequest(input.transcript_path) : null;
+  if (!ctx && last) ctx = last.ctx;
+  const ttlMs = input?.prompt_cache?.ttl ? toMs(input.prompt_cache.ttl) : last?.ttlMs ?? TTL_5M;
+
+  if (ctx) {
+    const label = `${tok(ctx)} ctx`;
+    parts.push(ctx >= HUGE_CTX ? c('31', label) : ctx >= LONG_CTX ? c('33', label) : label);
+    const cost2 = resendCost(ctx, model || last?.model, pricing, ttlMs);
+
+    // Is the cache still warm? Prefer Claude Code's view, else time since the last request.
+    const pc = input?.prompt_cache;
+    let cold = false;
+    let idle = last?.t ? now - last.t : null;
+    if (pc && typeof pc.warm === 'boolean') cold = !pc.warm && pc.requests > 0;
+    else if (idle != null) cold = idle > ttlMs;
+
+    if (cold && ctx >= GUARD_MIN_CTX) {
+      parts.push(c('36', `❄ cache cold${idle != null ? ` (${mins(idle)} idle)` : ''}${cost2 ? `: next msg ~${usd(cost2.cold)}` : ''}`));
+    } else {
+      if (cost2) parts.push(dim(`each msg ~${usd(cost2.warm)}`));
+      if (ctx >= HUGE_CTX) parts.push(c('31', '⚠ long session: /clear or a new one saves money'));
+    }
+  }
+  return parts.join(dim(' · '));
+}
+
+function toMs(ttl) {
+  if (typeof ttl === 'number') return ttl < 10_000 ? ttl * 1000 : ttl;
+  const m = String(ttl).match(/^(\d+)\s*(m|h|s)/i);
+  if (!m) return TTL_5M;
+  return Number(m[1]) * { s: 1000, m: 60_000, h: 3_600_000 }[m[2].toLowerCase()];
+}
+
+// ---------------------------------------------------------------------------
+// prompt guard (UserPromptSubmit hook)
+// ---------------------------------------------------------------------------
+
+const stateDir = () => path.join(os.tmpdir(), 'agentreplayer');
+
+/**
+ * Before a prompt is sent: if the cache has expired on a big conversation,
+ * block it once and say what it will cost. Sending the same thing again goes through.
+ * @returns {{ block: true, reason: string } | null}
+ */
+export function promptGuard(input, pricing, { now = Date.now(), dir = stateDir() } = {}) {
+  if (!input?.transcript_path || input.agent_id) return null; // subagents never get interrupted
+  const last = lastRequest(input.transcript_path);
+  if (!last?.t || last.ctx < GUARD_MIN_CTX) return null;
+  const idle = now - last.t;
+  if (idle <= last.ttlMs) return null;
+
+  // Only once per cold spell: remember that we warned after this last request.
+  const key = path.join(dir, `${String(input.session_id || 'session').replace(/[^\w-]/g, '')}.guard`);
+  try {
+    if (Number(fs.readFileSync(key, 'utf8')) === last.t) return null;
+  } catch {
+    /* not warned yet */
+  }
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(key, String(last.t));
+  } catch {
+    return null; // can't remember the warning: better not to block at all
+  }
+  const cost = resendCost(last.ctx, last.model, pricing, last.ttlMs);
+  const price = cost ? ` (~${usd(cost.cold)} instead of ~${usd(cost.warm)} with a warm cache)` : '';
+  return {
+    block: true,
+    reason:
+      `agentreplayer: the prompt cache expired after ${mins(idle)} idle, so this message would re-process ` +
+      `the whole ${tok(last.ctx)}-token conversation${price}.\n` +
+      `Send it again to go ahead, or /clear (or start a new session) to continue for less.`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// end-of-session summary (SessionEnd hook)
+// ---------------------------------------------------------------------------
+
+export const replaysDir = () => path.join(os.homedir(), '.agentreplayer', 'replays');
+
+/** One line about a finished session, e.g. "42 min · 18 tool calls · 3 files · ~$6.10". */
+export function summaryLine(session, stats) {
+  const bits = [];
+  if (!stats.timesSynthetic) bits.push(`${Math.max(1, Math.round(stats.activeMs / 60_000))} min`);
+  bits.push(`${stats.toolCalls} tool calls${stats.errors ? ` (${stats.errors} failed)` : ''}`);
+  if (stats.files.length) bits.push(`${stats.files.length} files +${stats.linesAdded} −${stats.linesRemoved}`);
+  if (stats.cost != null) bits.push(`~${usd(stats.cost)}`);
+  return bits.join(' · ');
+}

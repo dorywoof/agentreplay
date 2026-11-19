@@ -12,6 +12,10 @@ import { installSkill, uninstallSkill } from '../src/install-skill.js';
 import { collectSessions, analyze, formatReport } from '../src/insights.js';
 import { shareReplay } from '../src/share.js';
 import { resolveRef, buildLane, renderRace, laneLabels, MAX_LANES } from '../src/race.js';
+import { statusLine, promptGuard, summaryLine, replaysDir } from '../src/live.js';
+import { setup, unsetup, settingsPath, PARTS } from '../src/setup.js';
+import { parse as parseClaude } from '../src/parsers/claude.js';
+import { fileURLToPath } from 'node:url';
 
 const HELP = `
 agentreplayer — turn an AI coding session into a shareable replay
@@ -31,6 +35,11 @@ Usage
                                  "race claude codex" (newest of each), "race
                                  claude claude gemini" (two newest Claude), log
                                  files, or --list numbers ("race 1 3 4")
+  agentreplayer setup              Claude Code, every day: a status line with session
+                                 cost and context size, a one-time warning before a
+                                 message re-processes a cold cache, and a summary +
+                                 saved replay when a session ends. --remove undoes
+                                 it; --only statusline,guard,summary picks parts.
   agentreplayer install-skill      add a "replay" skill to every agent on this machine
                                  (Claude Code, Codex, Gemini CLI, OpenCode, Copilot,
                                  Cursor…). --project installs into the current repo,
@@ -74,6 +83,8 @@ const { values: opts, positionals } = parseArgs({
     json: { type: 'boolean' },
     'no-open': { type: 'boolean' },
     share: { type: 'boolean' },
+    remove: { type: 'boolean' },
+    only: { type: 'string' },
     help: { type: 'boolean', short: 'h' },
   },
 });
@@ -93,8 +104,104 @@ function ago(ms) {
   return `${Math.round(m / 1440)}d ago`;
 }
 
+async function readStdin() {
+  if (process.stdin.isTTY) return '';
+  let s = '';
+  for await (const chunk of process.stdin) s += chunk;
+  return s;
+}
+
+const parseJson = (s) => {
+  try {
+    return JSON.parse(s);
+  } catch {
+    return {};
+  }
+};
+
+/** Runs inside Claude Code: never throw, never print noise. */
+async function live(kind) {
+  const input = parseJson(await readStdin());
+  const pricing = loadPricing(opts.pricing);
+  if (kind === 'statusline') {
+    try {
+      process.stdout.write(statusLine(input, pricing, { color: !process.env.NO_COLOR }) + '\n');
+    } catch {
+      process.stdout.write('\n');
+    }
+    return;
+  }
+  if (kind === 'prompt') {
+    let r = null;
+    try {
+      r = promptGuard(input, pricing);
+    } catch {
+      /* never block a prompt because of our own error */
+    }
+    if (r) process.stdout.write(JSON.stringify({ decision: 'block', reason: r.reason }) + '\n');
+    return;
+  }
+  if (kind === 'session-end') {
+    // A /resume isn't the end of the work; tiny sessions aren't worth a summary.
+    if (!input.transcript_path || input.reason === 'resume') return;
+    try {
+      let session = parseClaude(input.transcript_path);
+      const prompts = session.events.filter((e) => e.kind === 'user').length;
+      if (!prompts || session.events.length < 4) return;
+      const r = createRedactor({});
+      session = r.redact(session);
+      const stats = computeStats(session, pricing);
+      const day = new Date().toISOString().slice(0, 10);
+      const slug = String(session.title || 'session').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'session';
+      const out = path.join(replaysDir(), `${day}-${slug}-${String(session.id).slice(0, 8)}.html`);
+      fs.mkdirSync(path.dirname(out), { recursive: true });
+      fs.writeFileSync(out, renderHtml(session, stats, { redactions: r.counts }));
+      // SessionEnd shows stderr to the user only with exit code 2.
+      process.stderr.write(`agentreplayer: ${summaryLine(session, stats)}\n  replay: ${out}\n`);
+      process.exit(2);
+    } catch {
+      /* the session is over anyway; stay quiet */
+    }
+  }
+}
+
+async function runSetup() {
+  const binPath = fs.realpathSync(fileURLToPath(import.meta.url));
+  if (!opts.remove && /[\\/]_npx[\\/]/.test(binPath) && !opts.force) {
+    fail(
+      'setup writes the path of this program into Claude Code settings, and npx runs it from a temporary cache.\n' +
+        '  Install it first:  npm install -g agentreplayer\n' +
+        '  then run:          agentreplayer setup',
+    );
+  }
+  const file = settingsPath();
+  const parts = opts.only ? opts.only.split(',').map((s) => s.trim()) : PARTS;
+  const bad = parts.filter((p) => !PARTS.includes(p));
+  if (bad.length) fail(`unknown part "${bad[0]}" (one of: ${PARTS.join(', ')})`);
+  let results;
+  try {
+    results = opts.remove ? unsetup({ file }) : setup({ file, binPath, parts, force: opts.force });
+  } catch (e) {
+    fail(e.message);
+  }
+  const what = { statusline: 'status line (cost, context, cold cache)', guard: 'cold-cache prompt guard', summary: 'end-of-session summary + saved replay' };
+  for (const r of results) console.log(`${bold(r.status === 'skipped' ? '–' : '✓')} ${what[r.part].padEnd(38)} ${dim(r.status)}${r.note ? dim(`  ${r.note}`) : ''}`);
+  console.log(dim(`  ${file}`));
+  if (!opts.remove) {
+    console.log(`\nRestart Claude Code to see it. Replays of finished sessions go to ${dim(replaysDir())}.`);
+    console.log(dim('Undo any time: agentreplayer setup --remove'));
+  }
+}
+
 async function main() {
   if (opts.help) return console.log(HELP);
+
+  if (positionals[0] === 'statusline') return live('statusline');
+  if (positionals[0] === 'hook') {
+    if (!['prompt', 'session-end'].includes(positionals[1])) fail('usage: agentreplayer hook prompt|session-end (Claude Code runs these)');
+    return live(positionals[1]);
+  }
+  if (positionals[0] === 'setup') return runSetup();
 
   if (positionals[0] === 'install-skill' || positionals[0] === 'uninstall-skill') {
     const project = opts.project ? process.cwd() : null;

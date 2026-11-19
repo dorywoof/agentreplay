@@ -26,6 +26,7 @@ You just watched an AI agent build a feature in 6 minutes. Now you want to show 
 
 ## Features
 
+- 📟 **Every day in Claude Code.** `agentreplayer setup` adds a status line (session cost, context size, cost per message), a one-time warning before a message re-processes a cold cache, and a summary + saved replay when a session ends. [More ↓](#every-day-in-claude-code)
 - 🏁 **`race`: up to six agents side by side.** Play Claude Code, Codex, Gemini CLI… sessions in sync on one clock, with live counters and finishing places. [More ↓](#race-up-to-six-agents-one-clock)
 - 🔗 **`--share`: one-command link.** Uploads the redacted replay as a secret gist and prints a link that plays it.
 - 🔎 **`insights`: see where your tokens went.** One command scans a week of sessions from every agent and finds retry loops, giant tool outputs that every later request re-read, and cache misses, then says what to change. [More ↓](#insights-where-did-your-tokens-go)
@@ -54,6 +55,23 @@ npx agentreplayer --agents   # which agents were found on this machine
 ```
 
 Requires Node 18+. Nothing is uploaded anywhere: everything happens on your machine.
+
+## Every day in Claude Code
+
+```bash
+npm install -g agentreplayer
+agentreplayer setup            # undo with: agentreplayer setup --remove
+```
+
+Restart Claude Code and you get three things, all running locally:
+
+- **A status line** with what this session cost, how big the context is, and what each message costs to send. Over 150k tokens it suggests starting fresh, because every message re-sends the whole conversation.
+  `$3.20 · 162k ctx · each msg ~$0.03 · ⚠ long session: /clear or a new one saves money`
+- **A cold-cache guard.** When you come back from a break, the prompt cache has expired, and the conversation is big, your next message would re-process all of it at full price. agentreplayer stops that message once and tells you what it would cost. Send it again to go ahead, or `/clear` to continue for less.
+- **A summary when a session ends**, plus a replay of it saved to `~/.agentreplayer/replays/`:
+  `agentreplayer: 42 min · 118 tool calls · 6 files +412 −80 · ~$6.10`
+
+`setup` only adds its own entries to `~/.claude/settings.json`. It keeps your other hooks, never replaces an existing status line (unless you pass `--force`), and saves a backup first. Pick parts with `--only statusline,guard,summary`.
 
 ## Race: up to six agents, one clock
 
