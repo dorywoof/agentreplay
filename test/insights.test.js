@@ -87,3 +87,23 @@ test('report renders and unknown models are reported as tokens, not dollars', ()
   assert.match(text, /agentreplayer insights/);
   assert.match(text, /no price for mystery-1/);
 });
+
+test('input is split by tokens and by dollars, which tell different stories', () => {
+  const s = session([{ kind: 'user', t: T0, text: 'go' }], [req(T0, { ctx: 100_000, read: 96_000, write: 4_000 })]);
+  const R = run([s]);
+  assert.equal(R.total.cacheRead, 96_000);
+  assert.equal(R.total.cacheWrite, 4_000);
+  const c = R.total.inputCost;
+  assert.ok(Math.abs(c.cacheRead - 0.0192) < 1e-9);
+  assert.ok(Math.abs(c.cacheWrite - 0.02) < 1e-9);
+  assert.equal(c.input, 0);
+  const out = formatReport(R);
+  assert.match(out, /input tokens: 96% cache reads · 4% cache writes · 0% uncached/);
+  assert.match(out, /input cost: +49% cache reads · 51% cache writes · 0% uncached/);
+});
+
+test('the long-prompt share is given in tokens and in dollars', () => {
+  const s = session([{ kind: 'user', t: T0, text: 'go' }], [req(T0, { ctx: 20_000, read: 0, write: 20_000 }), req(T0 + MIN, { ctx: 180_000, read: 180_000, write: 0 })]);
+  const out = formatReport(run([s]));
+  assert.match(out, /90% of input tokens \(26% of input cost\) were sent in prompts over 100k/);
+});

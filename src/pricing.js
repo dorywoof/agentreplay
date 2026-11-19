@@ -63,19 +63,23 @@ export function estimateCost(usageByModel, pricing) {
   return any ? total : null;
 }
 
-/** USD for one logged request, or null when the model has no known price. */
-export function requestCost(req, pricing) {
+/** USD for one logged request split by token kind, or null when the model has no known price. */
+export function requestCostParts(req, pricing) {
   const r = rateFor(req.model, pricing);
   if (!r) return null;
   const cacheRead = r.cacheRead ?? r.input * 0.1;
-  return (
-    (req.input * r.input +
-      req.output * r.output +
-      req.cacheRead * cacheRead +
-      req.cacheWrite * r.input * 1.25 +
-      (req.cacheWrite1h || 0) * r.input * 2) /
-    1e6
-  );
+  return {
+    input: (req.input * r.input) / 1e6,
+    cacheWrite: (req.cacheWrite * r.input * 1.25 + (req.cacheWrite1h || 0) * r.input * 2) / 1e6,
+    cacheRead: (req.cacheRead * cacheRead) / 1e6,
+    output: (req.output * r.output) / 1e6,
+  };
+}
+
+/** USD for one logged request, or null when the model has no known price. */
+export function requestCost(req, pricing) {
+  const p = requestCostParts(req, pricing);
+  return p && p.input + p.cacheWrite + p.cacheRead + p.output;
 }
 
 /** $/token for input, cache reads and 5-minute cache writes, or null. */

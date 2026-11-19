@@ -12,7 +12,7 @@ import path from 'node:path';
 import { PARSERS, listSessions } from './discover.js';
 import * as claudeParser from './parsers/claude.js';
 import { walk } from './parsers/agents.js';
-import { requestCost } from './pricing.js';
+import { requestCost, requestCostParts } from './pricing.js';
 
 const DAY = 86_400_000;
 export const CHARS_PER_TOKEN = 4;
@@ -68,7 +68,7 @@ const firstTime = (s) => s.events.find((e) => e.t)?.t ?? s.requestLog?.find((r) 
 const dayKey = (t) => (t == null ? 'unknown' : new Date(t).toLocaleDateString('en-CA'));
 
 function bucket(map, key) {
-  return (map[key] ||= { sessions: 0, tokens: 0, cost: 0, unpricedTokens: 0, requests: 0, toolCalls: 0, errors: 0, longTokens: 0, inputTokens: 0, cacheRead: 0 });
+  return (map[key] ||= { sessions: 0, tokens: 0, cost: 0, unpricedTokens: 0, requests: 0, toolCalls: 0, errors: 0, longTokens: 0, inputTokens: 0, cacheRead: 0, cacheWrite: 0, longInputCost: 0, inputCost: { input: 0, cacheWrite: 0, cacheRead: 0 } });
 }
 
 /** Normalized "same command" key for retry detection. Edits are excluded: re-editing a file is normal work. */
@@ -204,16 +204,22 @@ export function analyze({ sessions, since, now, days, failed = 0 }, pricing) {
     const reported = s.reportedCost;
     for (const r of reqs) {
       const tokens = r.ctx + r.output;
-      const cost = reported != null ? 0 : requestCost(r, pricing);
+      const parts = reported != null ? null : requestCostParts(r, pricing);
+      const cost = reported != null ? 0 : parts && parts.input + parts.cacheWrite + parts.cacheRead + parts.output;
       if (cost == null) unpriced.add(r.model || 'unknown');
       each(r.t ?? firstT, (b) => {
         b.requests++;
         b.tokens += tokens;
         b.inputTokens += r.ctx;
         b.cacheRead += r.cacheRead;
+        b.cacheWrite += r.cacheWrite + (r.cacheWrite1h || 0);
+        if (parts) for (const k of ['input', 'cacheWrite', 'cacheRead']) b.inputCost[k] += parts[k];
         if (cost == null) b.unpricedTokens += tokens;
         else b.cost += cost;
-        if (r.ctx > LONG_CONTEXT) b.longTokens += r.ctx;
+        if (r.ctx > LONG_CONTEXT) {
+          b.longTokens += r.ctx;
+          if (parts) b.longInputCost += parts.input + parts.cacheWrite + parts.cacheRead;
+        }
       });
     }
     if (reported != null) each(firstT, (b) => (b.cost += reported));
@@ -397,7 +403,16 @@ export function formatReport(R, { bold = (s) => s, dim = (s) => s, width = 72 } 
   );
   L.push('');
   L.push(`${bold('Spend')}  ${costTxt(T) || dim('no priced models')}${T.cost ? dim('  (API list prices; subscriptions bill differently)') : ''}`);
-  if (T.inputTokens) L.push(dim(`  ${Math.round((T.cacheRead / T.inputTokens) * 100)}% of input came from cache · ${Math.round((T.longTokens / T.inputTokens) * 100)}% was sent in prompts over ${fmtTok(LONG_CONTEXT)}`));
+  if (T.inputTokens) {
+    // Token shares and dollar shares differ a lot: a cache read costs 0.1x input, a cache write 1.25x (5 min) or 2x (1 h).
+    const pct = (v, all) => `${Math.round((v / all) * 100)}%`;
+    const split = (read, write, rest, all) => `${pct(read, all)} cache reads · ${pct(write, all)} cache writes · ${pct(rest, all)} uncached`;
+    L.push(dim(`  input tokens: ${split(T.cacheRead, T.cacheWrite, T.inputTokens - T.cacheRead - T.cacheWrite, T.inputTokens)}`));
+    const c = T.inputCost;
+    const costAll = c.input + c.cacheWrite + c.cacheRead;
+    if (costAll > 0) L.push(dim(`  input cost:   ${split(c.cacheRead, c.cacheWrite, c.input, costAll)}  (each kind at its own price)`));
+    L.push(dim(`  ${pct(T.longTokens, T.inputTokens)} of input tokens${costAll > 0 ? ` (${pct(T.longInputCost, costAll)} of input cost)` : ''} were sent in prompts over ${fmtTok(LONG_CONTEXT)}`));
+  }
 
   const table = (title, map, limit) => {
     const rows = Object.entries(map).sort((a, b) => b[1].cost - a[1].cost || b[1].tokens - a[1].tokens);
