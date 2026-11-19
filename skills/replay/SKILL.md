@@ -52,6 +52,8 @@ npx -y @dorywoof/agentreplay@latest --agent <agent> -o agentreplay.html
 | Hide reasoning | `--no-thinking` |
 | Keep file paths but still strip secrets | `--keep-paths` |
 | Raw data instead of HTML | `--json` |
+| Compare two sessions side by side | `race <a> <b>` instead of the default command; each is a log file, a `--list` number, or an agent name (its newest session), e.g. `race claude codex` |
+| See where tokens/money went across recent sessions | `insights` (add `--days N`); summarize the "What to do" section for the user |
 
 Pass through any arguments the user gave this skill.
 

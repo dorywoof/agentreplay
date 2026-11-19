@@ -26,6 +26,8 @@ You just watched an AI agent build a feature in 6 minutes. Now you want to show 
 
 ## Features
 
+- 🏁 **`race`: two agents side by side.** Play a Claude Code session and a Codex session (or any two) in sync on one clock, with live counters and a winner. [More ↓](#race-two-agents-one-clock)
+- 🔗 **`--share`: one-command link.** Uploads the redacted replay as a secret gist and prints a link that plays it.
 - 🔎 **`insights`: see where your tokens went.** One command scans a week of sessions from every agent and finds retry loops, giant tool outputs that every later request re-read, and cache misses, then says what to change. [More ↓](#insights-where-did-your-tokens-go)
 
 - ▶️ **Plays like a video.** Events appear in order with condensed timing; scrub, skip, pause, or change speed. Edits, errors and prompts are marked on the timeline.
@@ -52,6 +54,16 @@ npx @dorywoof/agentreplay --agents   # which agents were found on this machine
 ```
 
 Requires Node 18+. Nothing is uploaded anywhere: everything happens on your machine.
+
+## Race: two agents, one clock
+
+```bash
+npx @dorywoof/agentreplay race claude codex          # newest session of each, side by side
+npx @dorywoof/agentreplay race 1 3                   # two sessions from --list
+npx @dorywoof/agentreplay race a.jsonl b.jsonl --share
+```
+
+Give the same task to two agents (or two models), then play both sessions in sync. Each lane shows a live clock, tool calls, failures, files, lines changed, tokens and cost, and the first to finish gets a badge. Clocks show working time: pauses longer than 2 minutes count as 2 minutes in both lanes, so a coffee break doesn't decide the race. `?at=754` opens the page at 12:34.
 
 ## Insights: where did your tokens go?
 

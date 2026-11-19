@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>__TITLE__</title>
+<style>
+/*__CSS__*/
+.wrap.race { max-width: 1440px; padding-bottom: 96px; }
+.race h1 { max-width: none; margin-bottom: 10px; }
+.task { color: var(--muted); margin: 0 0 24px; max-width: 80ch; overflow-wrap: anywhere; }
+.task b { color: var(--ink); font-weight: 600; }
+.board { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); }
+.card { padding: 14px 24px 16px 0; min-width: 0; }
+.card + .card { padding-left: 24px; border-left: 1px solid var(--rule); }
+.card .who { margin: 0 0 6px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.card .who .mdl { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--faint); }
+.card .clock { font: 500 34px/1.1 var(--mono); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.card .state { font: 12px var(--mono); color: var(--muted); margin-left: 10px; letter-spacing: 0; }
+.card.done .state { color: var(--add); }
+.card .first { font: 600 10.5px/1 var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--bg); background: var(--add); padding: 3px 6px; margin-left: 10px; vertical-align: 6px; }
+.card .nums { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: 10px; font: 12.5px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.card .nums b { color: var(--ink); font-weight: 500; }
+.card .nums .add { color: var(--add); } .card .nums .del { color: var(--del); } .card .nums .bad { color: var(--warn); }
+.prog { height: 2px; background: var(--rule); margin-top: 12px; position: relative; }
+.prog i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ink); }
+.card.done .prog i { background: var(--add); }
+.tabs { display: none; margin-top: 16px; border: 1px solid var(--rule); font: 12px var(--mono); }
+.tabs button { flex: 1; padding: 8px; color: var(--muted); }
+.tabs button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.lanes { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-top: 8px; }
+.lane { min-width: 0; height: calc(100vh - 150px); min-height: 360px; overflow-y: auto; padding: 8px 24px 40px 0; overscroll-behavior: contain; }
+.lane + .lane { padding-left: 24px; border-left: 1px solid var(--rule); }
+.lane .ev { grid-template-columns: 46px minmax(0, 1fr); gap: 0 12px; }
+.lane .user .body { font-size: 15px; }
+.lane .say .body { font-size: 14px; max-width: none; }
+.clamp { display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
+.open > div > .clamp, .clamp.open { display: block; }
+.lane .empty { color: var(--faint); font: 12px var(--mono); padding: 18px 0; }
+@media (max-width: 760px) {
+  .board { grid-template-columns: 1fr 1fr; }
+  .card { padding-right: 10px; } .card + .card { padding-left: 12px; }
+  .card .clock { font-size: 24px; }
+  .card .nums { gap: 2px 12px; font-size: 11.5px; }
+  .card .state { display: block; margin: 2px 0 0; }
+  .tabs { display: flex; }
+  .lanes { grid-template-columns: 1fr; }
+  .lane, .lane + .lane { padding: 8px 0 40px; border-left: 0; height: auto; min-height: 0; overflow: visible; }
+  .lane[hidden] { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="wrap race">
+  <header id="head"></header>
+  <div class="tabs" id="tabs" role="group"></div>
+  <div class="lanes" id="lanes"></div>
+  <footer id="foot"></footer>
+</div>
+<div class="player">
+  <div class="pin" style="max-width:1440px">
+    <button class="play" id="play"></button>
+    <div class="track" id="track"><div class="rail"></div><div class="fill" id="fill"></div><div class="head" id="phead"></div></div>
+    <span class="count" id="count"></span>
+    <div class="speeds" id="speeds" role="group" aria-label="Speed"></div>
+    <button class="txt hide-sm" id="all">Show all</button>
+    <button class="icon" id="theme" aria-label="Switch theme" title="Switch theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg></button>
+  </div>
+</div>
+<script id="data" type="application/json">__DATA__</script>
+<script>
+(() => {
+  const D = JSON.parse(document.getElementById('data').textContent);
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const nf = new Intl.NumberFormat('en');
+  const tok = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'k' : String(Math.round(n)));
+  const usd = (c) => '$' + (c >= 100 ? Math.round(c) : c.toFixed(2));
+  const clock = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : String(m).padStart(2, '0')) + ':' + String(x).padStart(2, '0'); };
+  const base = (p) => String(p || '').split(/[\\/]/).pop();
+  const ICON = {
+    play: '<svg viewBox="0 0 16 16"><path d="M4 2.5v11l9-5.5z"/></svg>',
+    pause: '<svg viewBox="0 0 16 16"><path d="M4 2.5h3v11H4zM9 2.5h3v11H9z"/></svg>',
+    again: '<svg viewBox="0 0 16 16"><path d="M8 2.5a5.5 5.5 0 1 0 5.4 6.5h-1.6A4 4 0 1 1 8 4v2.2L11.2 3.3 8 .5z"/></svg>',
+  };
+  const qs = new URLSearchParams(window.AR_QUERY || location.search);
+
+  /* ---------- lanes: clocks and running totals ---------- */
+  const lanes = D.lanes.map((L) => {
+    // Without timestamps a lane advances one event every 4 s.
+    let prev = 0;
+    const ev = L.events.map((e, i) => { const at = L.timed ? Math.max(prev, e.at) : i * 4000; prev = at; return { ...e, at }; });
+    const end = ev.length ? ev[ev.length - 1].at : 0;
+    // cumulative counters after each event
+    const files = new Set();
+    let tools = 0, errors = 0, add = 0, del = 0;
+    const cum = ev.map((e) => {
+      if (e.kind === 'tool') {
+        tools++; if (e.isError) errors++;
+        if (e.diff) { (e.files && e.files.length ? e.files : [e.file]).forEach((f) => f && files.add(f)); if (e.lines) { add += e.lines.added; del += e.lines.removed; } }
+      }
+      return { tools, errors, files: files.size, add, del };
+    });
+    return { ...L, ev, end, cum, shown: 0 };
+  });
+  const total = Math.max(1, ...lanes.map((l) => l.end));
+  const finishOrder = lanes.map((l, i) => i).sort((a, b) => lanes[a].end - lanes[b].end);
+  // Only call a winner when both lanes really ran (timed, a minute or more) and the gap is clear.
+  const decisive = lanes.length === 2 && lanes.every((l) => l.timed && l.end >= 60_000) && lanes[finishOrder[0]].end < lanes[finishOrder[1]].end * 0.97;
+
+  /* ---------- header ---------- */
+  const titles = lanes.map((l) => l.title).filter(Boolean);
+  const sameTask = titles.length === lanes.length && titles.every((t) => t === titles[0]);
+  $('head').innerHTML = `<div class="meta"><b>agentreplay race</b><span>·</span>${lanes.map((l) => esc(l.agent)).join(' vs ')}</div>
+    <h1>${esc(D.title)}</h1>
+    ${sameTask ? `<p class="task"><b>Task</b> · ${esc(titles[0])}</p>` : ''}
+    <div class="board" id="board">${lanes.map((l, i) => `<div class="card" id="c${i}">
+      <div class="who">${esc(l.agent)}${l.models && l.models.length ? `<span class="mdl">${esc(l.models.join(', '))}</span>` : ''}</div>
+      <div><span class="clock" id="k${i}">00:00</span><span class="state" id="s${i}"></span><span id="f${i}"></span></div>
+      ${!sameTask && l.title ? `<div class="task" style="margin:6px 0 0;font-size:13px">${esc(l.title)}</div>` : ''}
+      <div class="nums" id="n${i}"></div>
+      <div class="prog"><i id="p${i}"></i></div></div>`).join('')}</div>`;
+
+  $('tabs').innerHTML = lanes.map((l, i) => `<button aria-pressed="${i === 0}" data-i="${i}">${esc(l.agent)}</button>`).join('');
+  $('tabs').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; for (const x of $('tabs').children) x.setAttribute('aria-pressed', x === b); lanes.forEach((l, i) => { $('l' + i).hidden = String(i) !== b.dataset.i; }); };
+  $('lanes').innerHTML = lanes.map((l, i) => `<main class="lane" id="l${i}" ${i ? 'hidden' : ''} aria-label="${esc(l.agent)}" aria-live="polite"></main>`).join('');
+  if (!matchMedia('(max-width: 760px)').matches) lanes.forEach((l, i) => ($('l' + i).hidden = false));
+  addEventListener('resize', () => { if (!matchMedia('(max-width: 760px)').matches) lanes.forEach((l, i) => ($('l' + i).hidden = false)); });
+
+  const red = D.redactions ? Object.entries(D.redactions) : [];
+  const g = D.generator;
+  const untimed = lanes.filter((l) => !l.timed).map((l) => l.agent);
+  $('foot').innerHTML = `<span>Made with ${g.url ? `<a href="${esc(g.url)}" target="_blank" rel="noopener">agentreplay</a>` : 'agentreplay'} ${esc(g.version)}</span>
+    <span>Clocks show working time: pauses longer than 2 min count as 2 min in both lanes.${untimed.length ? ` No timestamps for ${esc(untimed.join(', '))}: it advances one step every 4 s.` : ''}</span>
+    ${red.length ? `<span>Removed before sharing: ${esc(red.map(([k, v]) => `${v} × ${k}`).join(', '))}</span>` : ''}`;
+
+  /* ---------- event rendering (compact) ---------- */
+  function inline(s) {
+    return esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+      .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>').replace(/^#{1,6} (.+)$/gm, '<b>$1</b>');
+  }
+  function md(src) {
+    const parts = String(src).split(/```[\w+-]*\n?([\s\S]*?)```/g);
+    let html = '';
+    for (let i = 0; i < parts.length; i++) {
+      if (i % 2) { html += `<pre><code>${esc(parts[i].replace(/\n$/, ''))}</code></pre>`; continue; }
+      for (const block of parts[i].split(/\n{2,}/)) if (block.trim()) html += '<p>' + inline(block).replace(/\n/g, '<br>') + '</p>';
+    }
+    return html;
+  }
+  function diffHtml(d) {
+    const rows = [];
+    for (const h of d) {
+      if (h.file && d.length > 1) rows.push(`<div class="f">${esc(h.file)}</div>`);
+      if (h.old) for (const l of h.old.split('\n')) rows.push(`<div class="d">- ${esc(l)}</div>`);
+      if (h.new) for (const l of h.new.split('\n')) rows.push(`<div class="a">+ ${esc(l)}</div>`);
+    }
+    return `<div class="diff">${rows.join('')}</div>`;
+  }
+  function render(L, e, i) {
+    const el = document.createElement('div');
+    const prev = L.ev[i - 1];
+    const newTurn = e.kind === 'user' || (prev && prev.kind === 'user');
+    const gutter = `<div class="t">${L.timed ? clock(e.at) : ''}</div>`;
+    if (e.kind === 'user') {
+      el.className = 'ev user turn';
+      el.innerHTML = `${gutter}<div><div class="who">You</div><div class="body clamp"></div></div>`;
+      el.querySelector('.body').textContent = e.text;
+    } else if (e.kind === 'assistant') {
+      el.className = 'ev say' + (newTurn ? ' turn' : '');
+      el.innerHTML = `${gutter}<div><div class="body clamp">${md(e.text)}</div></div>`;
+    } else if (e.kind === 'thinking') {
+      el.className = 'ev think';
+      el.innerHTML = `${gutter}<div><div class="body"></div></div>`;
+      el.querySelector('.body').textContent = String(e.text).replace(/\*\*/g, '');
+      el.querySelector('.body').onclick = () => el.classList.toggle('open');
+      return el;
+    } else {
+      el.className = 'ev tool' + (e.isError ? ' err' : '') + (newTurn ? ' turn' : '');
+      const lines = e.lines ? `<span class="dl"><span class="a">+${e.lines.added}</span> <span class="d">−${e.lines.removed}</span></span>` : '';
+      const sum = e.diff ? base(e.file) + (e.files && e.files.length > 1 ? ` +${e.files.length - 1}` : '') : e.summary;
+      el.innerHTML = `${gutter}<div><div class="line" role="button" tabindex="0" aria-expanded="false"><span class="g">${e.isError ? '✕' : '✓'}</span><span class="nm" title="${esc(e.name)}">${esc(String(e.name).split(' · ').pop())}</span><span class="sum" title="${esc(e.summary)}">${esc(sum)}</span>${lines}</div>
+        <div class="detail">${e.diff ? (e.file ? `<div class="path">${esc(e.file)}</div>` : '') + diffHtml(e.diff) : ''}
+          ${e.input ? `<div class="lbl">Input</div><pre>${esc(e.input)}</pre>` : ''}
+          ${e.output ? `<div class="lbl">${e.isError ? 'Error' : 'Output'}</div><pre>${esc(e.output)}</pre>` : ''}</div></div>`;
+      const line = el.querySelector('.line');
+      const toggle = () => { el.classList.toggle('open'); line.setAttribute('aria-expanded', el.classList.contains('open')); };
+      line.onclick = toggle;
+      line.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(); } };
+      return el;
+    }
+    el.querySelector('.clamp').onclick = (ev) => { if (!ev.target.closest('a')) ev.currentTarget.classList.toggle('open'); };
+    return el;
+  }
+
+  /* ---------- clock ---------- */
+  let at = 0, playing = false, last = 0;
+  const SPEEDS = [1, 5, 15, 30, 60, 120, 300];
+  // Default: the whole race in about a minute.
+  let speed = SPEEDS.find((s) => total / s <= 75_000) || SPEEDS[SPEEDS.length - 1];
+  if (qs.get('speed') && SPEEDS.includes(Number(qs.get('speed')))) speed = Number(qs.get('speed'));
+
+  function update(animate) {
+    lanes.forEach((L, i) => {
+      const box = $('l' + i);
+      let n = 0;
+      while (n < L.ev.length && L.ev[n].at <= at) n++;
+      if (n < L.shown) { box.innerHTML = ''; L.shown = 0; }
+      if (n > L.shown) {
+        const frag = document.createDocumentFragment();
+        for (let k = L.shown; k < n; k++) { const el = render(L, L.ev[k], k); if (animate) el.classList.add('new'); frag.appendChild(el); }
+        box.appendChild(frag);
+        L.shown = n;
+        if (animate) { if (getComputedStyle(box).overflowY === 'auto') box.scrollTop = box.scrollHeight; }
+      }
+      if (!L.ev.length) box.innerHTML = '<div class="empty">no events</div>';
+      const c = n ? L.cum[n - 1] : { tools: 0, errors: 0, files: 0, add: 0, del: 0 };
+      const done = at >= L.end && n >= L.ev.length;
+      const t = Math.min(at, L.end);
+      let tokens = 0, cost = 0, priced = true;
+      for (const r of L.reqs) { if (r.at > at) break; tokens += r.tokens; if (r.cost == null) priced = false; else cost += r.cost; }
+      if (done && L.final.costReported) { cost = L.final.cost; priced = true; }
+      if (!L.reqs.length && done) tokens = L.final.tokens;
+      $('k' + i).textContent = L.timed ? clock(t) : `${n}/${L.ev.length}`;
+      $('s' + i).textContent = done ? '✓ finished' : at > 0 && n ? 'working…' : '';
+      $('c' + i).classList.toggle('done', done);
+      const firstIdx = finishOrder[0];
+      $('f' + i).innerHTML = decisive && i === firstIdx && done ? '<span class="first">First</span>' : '';
+      $('p' + i).style.width = (L.end ? Math.min(1, t / L.end) : done ? 1 : 0) * 100 + '%';
+      $('n' + i).innerHTML = [
+        `<span><b>${nf.format(c.tools)}</b> tool calls</span>`,
+        c.errors ? `<span class="bad"><b class="bad">${c.errors}</b> failed</span>` : '',
+        `<span><b>${c.files}</b> files</span>`,
+        c.add || c.del ? `<span><b class="add">+${nf.format(c.add)}</b> <b class="del">−${nf.format(c.del)}</b></span>` : '',
+        tokens ? `<span><b>${tok(tokens)}</b> tokens</span>` : '',
+        priced && cost ? `<span><b>${usd(cost)}</b>${L.final.costReported ? '' : ' est.'}</span>` : '',
+      ].filter(Boolean).join('');
+    });
+    const p = Math.min(1, at / total);
+    $('fill').style.width = p * 100 + '%';
+    $('phead').style.left = p * 100 + '%';
+    $('count').textContent = clock(Math.min(at, total));
+    const fin = at >= total && !playing;
+    $('play').innerHTML = playing ? ICON.pause : fin ? ICON.again : ICON.play;
+    $('play').setAttribute('aria-label', playing ? 'Pause' : fin ? 'Replay from start' : 'Play');
+    $('play').title = $('play').getAttribute('aria-label');
+  }
+  function tick(now) {
+    if (!playing) return;
+    at += (now - last) * speed; last = now;
+    if (at >= total) { at = total; playing = false; }
+    update(true);
+    if (playing) requestAnimationFrame(tick);
+  }
+  function play() { if (at >= total) { at = 0; update(false); } playing = true; last = performance.now(); requestAnimationFrame(tick); update(false); }
+  function pause() { playing = false; update(false); }
+  function seek(t) { pause(); at = Math.max(0, Math.min(total, t)); update(false); lanes.forEach((L, i) => { const b = $('l' + i); b.scrollTop = b.scrollHeight; }); }
+
+  $('play').onclick = () => (playing ? pause() : play());
+  $('all').onclick = () => seek(total);
+  $('speeds').innerHTML = SPEEDS.map((s) => `<button aria-pressed="${s === speed}" data-s="${s}">${s}×</button>`).join('');
+  $('speeds').onclick = (ev) => {
+    const b = ev.target.closest('button');
+    if (!b) return;
+    const narrow = matchMedia('(max-width: 700px)').matches;
+    speed = narrow && b.getAttribute('aria-pressed') === 'true' ? SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length] : Number(b.dataset.s);
+    for (const x of $('speeds').children) x.setAttribute('aria-pressed', Number(x.dataset.s) === speed);
+  };
+  $('theme').onclick = () => {
+    const r = document.documentElement;
+    const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    r.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('agentreplay-theme', r.dataset.theme); } catch {}
+  };
+  try { const th = localStorage.getItem('agentreplay-theme'); if (th) document.documentElement.dataset.theme = th; } catch {}
+
+  const track = $('track');
+  track.setAttribute('role', 'slider');
+  track.setAttribute('aria-label', 'Timeline');
+  track.tabIndex = 0;
+  const seekAt = (x) => { const r = track.getBoundingClientRect(); seek(((x - r.left) / r.width) * total); };
+  track.onpointerdown = (ev) => { seekAt(ev.clientX); track.setPointerCapture(ev.pointerId); track.onpointermove = (m) => seekAt(m.clientX); };
+  track.onpointerup = () => { track.onpointermove = null; };
+  document.addEventListener('keydown', (ev) => {
+    if (ev.target.closest && ev.target.closest('.line, button')) return;
+    if (ev.code === 'Space') { ev.preventDefault(); playing ? pause() : play(); }
+    else if (ev.key === 'ArrowRight') seek(at + total / 50);
+    else if (ev.key === 'ArrowLeft') seek(at - total / 50);
+    else if (ev.key === 'End') seek(total);
+    else if (ev.key === 'Home') seek(0);
+  });
+
+  // ?at=754 opens paused at 12:34 of race time; ?static shows the end.
+  if (qs.has('at') && Number.isFinite(Number(qs.get('at')))) seek(Number(qs.get('at')) * 1000);
+  else if (qs.has('static')) seek(total);
+  else { update(false); setTimeout(play, 700); }
+})();
+</script>
+</body>
+</html>

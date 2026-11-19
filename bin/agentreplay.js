@@ -11,6 +11,7 @@ import { renderHtml } from '../src/render.js';
 import { installSkill, uninstallSkill } from '../src/install-skill.js';
 import { collectSessions, analyze, formatReport } from '../src/insights.js';
 import { shareReplay } from '../src/share.js';
+import { resolveRef, buildLane, renderRace } from '../src/race.js';
 
 const HELP = `
 agentreplay — turn an AI coding session into a shareable replay
@@ -26,6 +27,9 @@ Usage
                                  every agent: spend by project/agent/day, retry
                                  loops, huge tool outputs, cache misses, and what
                                  to change. --days <n>, --agent <name>, --json.
+  agentreplay race <a> <b>       two sessions side by side on one clock, e.g.
+                                 "race claude codex" (newest of each), two log
+                                 files, or two --list numbers ("race 1 3")
   agentreplay install-skill      add a "replay" skill to every agent on this machine
                                  (Claude Code, Codex, Gemini CLI, OpenCode, Copilot,
                                  Cursor…). --project installs into the current repo,
@@ -105,6 +109,8 @@ async function main() {
     else if (positionals[0] === 'install-skill') console.log(`\nRestart your agent, then ask it to ${bold('"make a replay of this session"')} (in Claude Code: ${bold('/agentreplay')}).`);
     return;
   }
+
+  if (positionals[0] === 'race') return race(positionals.slice(1));
 
   if (positionals[0] === 'insights') {
     if (opts.agent && !PARSERS[opts.agent]) fail(`unknown agent "${opts.agent}" (one of: ${Object.keys(PARSERS).join(', ')})`);
@@ -214,17 +220,22 @@ async function main() {
   const cost = stats.cost != null ? ` · ~$${stats.cost.toFixed(2)}` : '';
   console.log(`${bold('✓')} ${session.agent} · ${session.title || 'Untitled'}`);
   console.log(dim(`  ${session.events.length} events · ${stats.toolCalls} tool calls · ${stats.files.length} files · ${mins} min${cost}`));
-  if (redactions) {
-    const total = Object.values(redactions).reduce((a, b) => a + b, 0);
-    if (total) console.log(dim(`  redacted: ${Object.entries(redactions).map(([k, v]) => `${v} ${k}`).join(', ')}`));
-  } else {
-    console.log('  ⚠ redaction is OFF — check the file before sharing it');
-  }
+  printRedactions(redactions);
   console.log(`  → ${out}`);
+  await deliver(out, `${session.title || 'Untitled'} · ${session.agent} replay (agentreplay)`);
+}
 
+function printRedactions(redactions) {
+  if (!redactions) return console.log('  ⚠ redaction is OFF — check the file before sharing it');
+  const total = Object.values(redactions).reduce((a, b) => a + b, 0);
+  if (total) console.log(dim(`  redacted: ${Object.entries(redactions).map(([k, v]) => `${v} ${k}`).join(', ')}`));
+}
+
+/** Upload with --share, otherwise open the local file. */
+async function deliver(out, description) {
   if (opts.share) {
     try {
-      const shared = await shareReplay(out, { description: `${session.title || 'Untitled'} · ${session.agent} replay (agentreplay)` });
+      const shared = await shareReplay(out, { description });
       console.log(`${bold('✓')} shared as a secret gist (anyone with the link can view it)`);
       console.log(`  ${bold(shared.url)}`);
       console.log(dim(`  delete it any time: ${shared.gistUrl}`));
@@ -234,8 +245,48 @@ async function main() {
     }
     return;
   }
-
   if (!opts['no-open'] && !process.env.CI) openFile(out);
+}
+
+async function race(refs) {
+  if (refs.length !== 2) fail('race needs two sessions: agentreplay race <a> <b>  (each a log file, a --list number, or an agent like claude / codex)');
+  if (opts.share && opts['no-redact']) fail('--share refuses --no-redact: an unredacted replay should not be uploaded');
+  const picked = refs.map((ref) => {
+    try {
+      return resolveRef(ref);
+    } catch (e) {
+      return fail(e.message);
+    }
+  });
+  if (picked[0].file === picked[1].file) fail('both lanes are the same session; pick two different ones');
+  let parsed = picked.map((p) => p.parsed || PARSERS[p.agent].parse(p.file));
+  for (const s of parsed) {
+    if (!s.events.length) fail(`${s.agent} session has no messages to replay`);
+    if (opts['no-thinking']) s.events = s.events.filter((e) => e.kind !== 'thinking');
+  }
+  let redactions = null;
+  if (!opts['no-redact']) {
+    // One redactor for both, so a secret seen in one lane is scrubbed in the other too.
+    const r = createRedactor({ paths: !opts['keep-paths'] });
+    const both = r.redact({ a: parsed[0], b: parsed[1] });
+    parsed = [both.a, both.b];
+    redactions = r.counts;
+  }
+  const pricing = loadPricing(opts.pricing);
+  const lanes = parsed.map((s) => buildLane(s, pricing));
+  const out = path.resolve(opts.out || `race-${refs.map((r) => path.basename(r).replace(/\.[^.]+$/, '').replace(/[^\w-]/g, '').slice(0, 16) || 'session').join('-vs-')}.html`);
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, renderRace(lanes, { title: opts.title, redactions }));
+
+  console.log(`${bold('✓')} race · ${lanes.map((l) => l.agent).join(' vs ')}`);
+  for (const l of lanes) {
+    const time = l.timed ? `${Math.max(1, Math.round(l.final.ms / 60000))} min` : 'no timestamps';
+    const cost = l.final.cost != null ? ` · ~$${l.final.cost.toFixed(2)}` : '';
+    console.log(dim(`  ${l.agent.padEnd(12)} ${time} · ${l.final.toolCalls} tool calls (${l.final.errors} failed) · ${l.final.files} files${cost}  ${l.title ? '· ' + l.title.slice(0, 50) : ''}`));
+  }
+  printRedactions(redactions);
+  console.log(`  → ${out}`);
+  await deliver(out, `${lanes.map((l) => l.agent).join(' vs ')} race (agentreplay)`);
 }
 
 function openFile(file) {
