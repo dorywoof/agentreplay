@@ -214,3 +214,21 @@ test('CLI statusline --wrap runs the wrapped command and adds ours', () => {
   assert.equal(r.status, 0, r.stderr);
   assert.equal(r.stdout.trim(), 'THEIRS | $1.50');
 });
+
+test('doctor reports the setup and the shape of the last status line input, never its values', () => {
+  const home = tmp();
+  const cfg = path.join(home, '.claude');
+  const tmpdir = tmp();
+  const env = { ...process.env, HOME: home, USERPROFILE: home, CLAUDE_CONFIG_DIR: cfg, TMP: tmpdir, TEMP: tmpdir, TMPDIR: tmpdir, NO_COLOR: '1' };
+  const before = spawnSync(process.execPath, [BIN, 'doctor'], { encoding: 'utf8', env });
+  assert.match(before.stdout, /hasn't run yet/);
+  const input = { version: '2.1.328', model: { id: 'claude-opus-5-5' }, cost: { total_cost_usd: 1 }, transcript_path: 'C:/secret/path.jsonl' };
+  spawnSync(process.execPath, [BIN, 'statusline'], { input: JSON.stringify(input), encoding: 'utf8', env });
+  const note = fs.readFileSync(path.join(tmpdir, 'agentreplayer', 'statusline-last.json'), 'utf8');
+  assert.doesNotMatch(note, /secret/, 'only field names are stored');
+  const after = spawnSync(process.execPath, [BIN, 'doctor'], { encoding: 'utf8', env });
+  assert.match(after.stdout, /Claude Code 2\.1\.328/);
+  assert.match(after.stdout, /did not send rate_limits/);
+  spawnSync(process.execPath, [BIN, 'statusline'], { input: JSON.stringify({ ...input, rate_limits: { five_hour: { used_percentage: 10 } } }), encoding: 'utf8', env });
+  assert.match(spawnSync(process.execPath, [BIN, 'doctor'], { encoding: 'utf8', env }).stdout, /subscription limits: five_hour/);
+});

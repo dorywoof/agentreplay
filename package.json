@@ -1,6 +1,6 @@
 {
   "name": "agentreplayer",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "description": "Turn any AI coding agent session (Claude Code, Codex, Gemini CLI, OpenCode, Cline, Roo, Copilot CLI, Aider, …) into a shareable, video-like HTML replay with cost stats and secret redaction.",
   "homepage": "https://github.com/dorywoof/agentreplayer#readme",
   "repository": {

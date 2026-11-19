@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { parseArgs } from 'node:util';
@@ -41,6 +42,8 @@ Usage
                                  message re-processes a cold cache, and a summary +
                                  saved replay when a session ends. --remove undoes
                                  it; --only statusline,guard,summary picks parts.
+  agentreplayer doctor             check the setup and what Claude Code sends the status
+                                 line (e.g. why subscription limits don't show)
   agentreplayer install-skill      add a "replay" skill to every agent on this machine
                                  (Claude Code, Codex, Gemini CLI, OpenCode, Copilot,
                                  Cursor…). --project installs into the current repo,
@@ -122,6 +125,75 @@ const parseJson = (s) => {
   }
 };
 
+const statusNoteFile = () => path.join(os.tmpdir(), 'agentreplayer', 'statusline-last.json');
+
+/**
+ * Remember the shape (field names only, no values or text) of what Claude Code
+ * last sent the status line, so `agentreplayer doctor` can explain a missing piece.
+ */
+function noteStatusInput(input) {
+  try {
+    const rl = input.rate_limits;
+    const note = {
+      at: Date.now(),
+      claudeVersion: input.version || null,
+      model: input.model?.id || null,
+      fields: Object.keys(input).sort(),
+      rateLimits: rl ? Object.keys(rl).filter((k) => typeof rl[k]?.used_percentage === 'number') : null,
+      hasCost: typeof input.cost?.total_cost_usd === 'number',
+      hasContext: !!input.context_window?.current_usage,
+      hasPromptCache: !!input.prompt_cache,
+    };
+    fs.mkdirSync(path.dirname(statusNoteFile()), { recursive: true });
+    fs.writeFileSync(statusNoteFile(), JSON.stringify(note));
+  } catch {
+    /* diagnostics only */
+  }
+}
+
+function doctor() {
+  const file = settingsPath();
+  let s = {};
+  try {
+    s = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    /* none */
+  }
+  const ours = (c) => typeof c === 'string' && /agentreplayer/.test(c);
+  const hooks = (ev) => (s.hooks?.[ev] || []).some((g) => (g.hooks || []).some((h) => ours(h.command)));
+  const ok = (b) => (b ? bold('✓') : '✗');
+  console.log(bold('agentreplayer doctor'));
+  console.log(`  ${ok(ours(s.statusLine?.command))} status line ${dim(s.statusLine?.command?.endsWith('--wrap') ? '(wrapping your own)' : '')}`);
+  console.log(`  ${ok(hooks('UserPromptSubmit'))} cold-cache guard`);
+  console.log(`  ${ok(hooks('SessionEnd'))} end-of-session summary`);
+  let n = null;
+  try {
+    n = JSON.parse(fs.readFileSync(statusNoteFile(), 'utf8'));
+  } catch {
+    /* not run yet */
+  }
+  if (!n) {
+    console.log(dim('\n  The status line hasn\'t run yet. Restart Claude Code and send one message.'));
+    return;
+  }
+  const mins = Math.round((Date.now() - n.at) / 60000);
+  console.log(`\n  Last status line: ${mins} min ago, Claude Code ${n.claudeVersion || '?'}, ${n.model || 'model ?'}`);
+  console.log(`  ${ok(n.hasCost)} session cost   ${ok(n.hasContext)} context size   ${ok(n.hasPromptCache)} cache state`);
+  if (n.rateLimits && n.rateLimits.length) console.log(`  ${ok(true)} subscription limits: ${n.rateLimits.join(', ')}`);
+  else {
+    console.log(`  ${ok(false)} subscription limits`);
+    console.log(
+      dim(
+        n.fields.includes('rate_limits')
+          ? '    Claude Code sent rate_limits but without a window yet. It appears after the first reply of a session.'
+          : '    Claude Code did not send rate_limits. It only does for Pro/Max/Ultra accounts logged in with claude.ai\n' +
+              '    (not an API key), and only after the first reply. Check with /status in Claude Code which login is active.',
+      ),
+    );
+  }
+  console.log(dim(`\n  Fields received: ${n.fields.join(', ')}`));
+}
+
 /** Runs inside Claude Code: never throw, never print noise. */
 async function live(kind) {
   const pricing = loadPricing(opts.pricing);
@@ -136,6 +208,7 @@ async function live(kind) {
   const rawInput = await readStdin();
   const input = parseJson(rawInput);
   if (kind === 'statusline') {
+    noteStatusInput(input);
     const binPath = fs.realpathSync(fileURLToPath(import.meta.url));
     const width = Number(process.env.COLUMNS) || null;
     let ours = '';
@@ -236,6 +309,7 @@ async function main() {
     return live(positionals[1]);
   }
   if (positionals[0] === 'setup') return runSetup();
+  if (positionals[0] === 'doctor') return doctor();
 
   if (positionals[0] === 'install-skill' || positionals[0] === 'uninstall-skill') {
     const project = opts.project ? process.cwd() : null;

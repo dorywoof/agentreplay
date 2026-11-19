@@ -78,6 +78,8 @@ The status line is plain text and colour, with no emoji or Nerd Font glyphs, so 
 
 `setup` only adds its own entries to `~/.claude/settings.json`. It keeps your other hooks and saves a backup first. Pick parts with `--only statusline,guard,summary`.
 
+Something missing, like your subscription limits? Run `agentreplayer doctor`. It checks the setup and lists which fields Claude Code actually sent the status line. It records field names only, never values.
+
 ## Race: up to six agents, one clock
 
 ```bash
