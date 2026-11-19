@@ -65,7 +65,7 @@ npx @dorywoof/agentreplay race 1 3 4                 # sessions from --list
 npx @dorywoof/agentreplay race a.jsonl b.jsonl --share
 ```
 
-Give the same task to 2–6 agents (or models), then play all the sessions in sync. Each lane shows a live clock, tool calls, failures, files, lines changed, tokens and cost, and lanes get 1st / 2nd / 3rd… as they finish (lanes within 3% of each other share a place). Two lanes from the same agent are told apart by model, or numbered. Clocks show working time: pauses longer than 2 minutes count as 2 minutes in both lanes, so a coffee break doesn't decide the race. `?at=754` opens the page at 12:34.
+Give the same task to 2–6 agents (or models), then play all the sessions in sync. Each lane shows a live clock, tool calls, failures, files, lines changed, tokens and cost, and lanes get 1st / 2nd / 3rd… as they finish (lanes within 3% of each other share a place). Two lanes from the same agent are told apart by model, or numbered. Clocks show working time: pauses longer than 2 minutes count as 2 minutes in every lane, so a coffee break doesn't decide the race. `?at=754` opens the page at 12:34.
 
 ## Insights: where did your tokens go?
 

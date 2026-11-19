@@ -155,7 +155,7 @@
   const g = D.generator;
   const untimed = lanes.filter((l) => !l.timed).map(label);
   $('foot').innerHTML = `<span>Made with ${g.url ? `<a href="${esc(g.url)}" target="_blank" rel="noopener">agentreplay</a>` : 'agentreplay'} ${esc(g.version)}</span>
-    <span>Clocks show working time: pauses longer than 2 min count as 2 min in both lanes.${untimed.length ? ` No timestamps for ${esc(untimed.join(', '))}: it advances one step every 4 s.` : ''}</span>
+    <span>Clocks show working time: pauses longer than 2 min count as 2 min in every lane.${untimed.length ? ` No timestamps for ${esc(untimed.join(', '))}: it advances one step every 4 s.` : ''}</span>
     ${red.length ? `<span>Removed before sharing: ${esc(red.map(([k, v]) => `${v} × ${k}`).join(', '))}</span>` : ''}`;
 
   /* ---------- event rendering (compact) ---------- */
