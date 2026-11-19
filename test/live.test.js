@@ -131,10 +131,11 @@ test('setup wraps somebody else’s status line, and --remove puts it back exact
 });
 
 test('CLI: statusline never fails, session-end saves a replay and reports via stderr + exit 2', () => {
-  const sl = spawnSync(process.execPath, [BIN, 'statusline'], { input: 'not json', encoding: 'utf8' });
-  assert.equal(sl.status, 0);
   const home = tmp();
+  // An isolated home: the status line kicks off a background "today" refresh that writes there.
   const env = { ...process.env, HOME: home, USERPROFILE: home };
+  const sl = spawnSync(process.execPath, [BIN, 'statusline'], { input: 'not json', encoding: 'utf8', env });
+  assert.equal(sl.status, 0);
   const end = spawnSync(process.execPath, [BIN, 'hook', 'session-end'], { input: JSON.stringify({ transcript_path: DEMO, reason: 'prompt_input_exit' }), encoding: 'utf8', env });
   assert.equal(end.status, 2, end.stderr);
   assert.match(end.stderr, /agentreplayer: .*tool calls/);
