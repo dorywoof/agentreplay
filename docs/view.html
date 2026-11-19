@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agentreplay</title>
+<meta name="description" content="An AI coding session, played back like a video. Made with agentreplay.">
+<style>
+  :root { --bg: #fbfbfa; --fg: #1d1d1b; --mute: #6b6b66; color-scheme: light dark; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #141413; --fg: #ecebe6; --mute: #9a9993; } }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; }
+  iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; }
+  .msg { max-width: 34rem; margin: 18vh auto 0; padding: 0 16px; }
+  .msg p { color: var(--mute); }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+<div class="msg" id="msg"><p>Loading replay…</p></div>
+<script>
+(async () => {
+  const msg = document.getElementById('msg');
+  const say = (html) => { msg.innerHTML = html; };
+  const repo = '<a href="https://github.com/dorywoof/agentreplay">agentreplay</a>';
+
+  // #<gist id>[/e42][?lang=xx|static]  →  the gist id, plus what to hand to the replay
+  const m = location.hash.match(/^#([0-9a-f]{20,40})(?:\/(e\d+))?(?:\?(.*))?$/i);
+  if (!m) return say(`<h1>No replay here</h1><p>This page shows replays shared with ${repo}'s <code>--share</code> option. The link should end in <code>#</code> and a gist id.</p>`);
+  const [, id, ev, query] = m;
+
+  try {
+    const res = await fetch(`https://api.github.com/gists/${id}`, { headers: { Accept: 'application/vnd.github+json' } });
+    if (res.status === 404) return say(`<h1>Replay not found</h1><p>The gist may have been deleted by its owner.</p>`);
+    if (res.status === 403) return say(`<h1>Too many requests</h1><p>GitHub limits anonymous requests per hour. <a href="https://gist.github.com/${id}">Open the gist</a> or try again later.</p>`);
+    if (!res.ok) throw new Error('GitHub API ' + res.status);
+    const gist = await res.json();
+    const file = Object.values(gist.files || {}).find((f) => /\.html?$/i.test(f.filename));
+    if (!file) return say(`<h1>Not a replay</h1><p>This gist has no HTML file.</p>`);
+    let html = file.truncated || !file.content ? await (await fetch(file.raw_url)).text() : file.content;
+    if (!html.includes('id="data"')) return say(`<h1>Not a replay</h1><p>This gist wasn't made with ${repo}.</p>`);
+
+    // Pass the event anchor / query through to the replay, which runs at about:srcdoc.
+    const params = `<script>window.AR_HASH=${JSON.stringify(ev ? '#' + ev : '')};window.AR_QUERY=${JSON.stringify(query ? '?' + query : '')};<\/script>`;
+    html = html.replace(/<head[^>]*>/i, (h) => h + params);
+    const title = html.match(/<title>([^<]*)<\/title>/i);
+    if (title) document.title = title[1].replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+
+    // No allow-same-origin: the gist's code runs in an opaque origin and can't touch this site.
+    const frame = document.createElement('iframe');
+    frame.setAttribute('sandbox', 'allow-scripts allow-popups allow-popups-to-escape-sandbox');
+    frame.setAttribute('title', document.title);
+    frame.srcdoc = html;
+    msg.remove();
+    document.body.appendChild(frame);
+  } catch (e) {
+    say(`<h1>Couldn't load the replay</h1><p>${String(e.message || e).replace(/[<&]/g, '')}. <a href="https://gist.github.com/${id}">Open the gist</a>.</p>`);
+  }
+})();
+</script>
+</body>
+</html>

@@ -10,6 +10,7 @@ import { loadPricing } from '../src/pricing.js';
 import { renderHtml } from '../src/render.js';
 import { installSkill, uninstallSkill } from '../src/install-skill.js';
 import { collectSessions, analyze, formatReport } from '../src/insights.js';
+import { shareReplay } from '../src/share.js';
 
 const HELP = `
 agentreplay — turn an AI coding session into a shareable replay
@@ -41,6 +42,9 @@ Options
       --keep-paths      redact secrets but keep file paths as-is
       --pricing <file>  JSON with custom $/1M token prices per model
       --json            print the normalized session JSON instead of HTML
+      --share           upload as a secret GitHub Gist and print a link that plays
+                        it (needs "gh auth login" or GITHUB_TOKEN; anyone with
+                        the link can view it)
       --no-open         don't open the replay in a browser
   -h, --help            show this help
 `;
@@ -64,6 +68,7 @@ const { values: opts, positionals } = parseArgs({
     pricing: { type: 'string' },
     json: { type: 'boolean' },
     'no-open': { type: 'boolean' },
+    share: { type: 'boolean' },
     help: { type: 'boolean', short: 'h' },
   },
 });
@@ -83,7 +88,7 @@ function ago(ms) {
   return `${Math.round(m / 1440)}d ago`;
 }
 
-function main() {
+async function main() {
   if (opts.help) return console.log(HELP);
 
   if (positionals[0] === 'install-skill' || positionals[0] === 'uninstall-skill') {
@@ -185,6 +190,8 @@ function main() {
   if (opts['no-thinking']) session.events = session.events.filter((e) => e.kind !== 'thinking');
   if (!session.events.length) fail('this session has no messages to replay');
 
+  if (opts.share && opts['no-redact']) fail('--share refuses --no-redact: an unredacted replay should not be uploaded');
+
   let redactions = null;
   if (!opts['no-redact']) {
     const r = createRedactor({ paths: !opts['keep-paths'] });
@@ -215,6 +222,19 @@ function main() {
   }
   console.log(`  → ${out}`);
 
+  if (opts.share) {
+    try {
+      const shared = await shareReplay(out, { description: `${session.title || 'Untitled'} · ${session.agent} replay (agentreplay)` });
+      console.log(`${bold('✓')} shared as a secret gist (anyone with the link can view it)`);
+      console.log(`  ${bold(shared.url)}`);
+      console.log(dim(`  delete it any time: ${shared.gistUrl}`));
+      if (!opts['no-open'] && !process.env.CI) openFile(shared.url);
+    } catch (e) {
+      fail(`share failed: ${e.message}`);
+    }
+    return;
+  }
+
   if (!opts['no-open'] && !process.env.CI) openFile(out);
 }
 
@@ -232,4 +252,4 @@ function openFile(file) {
   }
 }
 
-main();
+main().catch((e) => fail(e.message));

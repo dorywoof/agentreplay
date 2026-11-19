@@ -61,15 +61,18 @@ Pass through any arguments the user gave this skill.
   do, warn them that secrets, e-mails and home paths will be in the file.
 - Redaction covers common secret formats but not everything private. Tell the
   user to skim the replay before posting it publicly.
-- Don't upload or publish the HTML anywhere yourself. Offer the sharing options
-  below and let the user choose.
+- Don't upload or publish the HTML anywhere on your own. Add `--share` only
+  when the user asks for a link; it uploads the redacted replay as a secret
+  GitHub Gist that anyone with the link can view.
 
 ## After it runs
 
 Report in two or three lines: the output path, the one-line stats the CLI
 printed (events, tool calls, files, minutes, cost), and what was redacted. Then
-mention the ways to share it: drag the file onto Netlify Drop, attach it in Slack/Discord,
-or commit it to a GitHub Pages branch. `#e42` at the end of the URL opens the
+mention the ways to share it: rerun with `--share` for a link (needs
+`gh auth login` or a GITHUB_TOKEN), drag the file onto Netlify Drop, or attach
+it in Slack/Discord. If `--share` was used, give the printed link and say
+that deleting the gist takes it down. `#e42` at the end of the URL opens the
 replay at event 42 and `?static` shows everything at once.
 
 If the command fails because Node is missing, say that agentreplay needs

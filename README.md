@@ -153,11 +153,17 @@ Sessions are found automatically. You can also pass any file directly.
 
 ## Sharing a replay
 
-The output is a static file, so any of these work:
+One command gives you a link:
 
-- **GitHub Pages:** commit `replay.html` to a `gh-pages` branch.
-- **Gist:** upload it, then open it through a gist-preview service.
-- **Netlify / Vercel drop:** drag and drop the file.
+```bash
+npx @dorywoof/agentreplay --share
+```
+
+This uploads the redacted replay as a **secret GitHub Gist** and prints a link like `https://dorywoof.github.io/agentreplay/view.html#<gist-id>`. It uses the GitHub CLI if you're logged in (`gh auth login`), otherwise a `GITHUB_TOKEN` with the `gist` scope. Secret gists aren't listed or searchable, but anyone with the link can view it. Delete the gist to take it down. `--share` refuses to run with `--no-redact`.
+
+The viewer loads the gist in a sandboxed iframe, so a replay can't run code on the viewer's site. Add `/e42` after the gist id to open at event 42 (`view.html#<id>/e42`).
+
+The output is also a plain static file, so you can host it anywhere else: a `gh-pages` branch, Netlify / Vercel drop, Slack, e-mail.
 
 > ⚠️ Redaction catches common secret formats, but it can't know everything that is private to you. Skim the replay before posting it publicly.
 
@@ -179,7 +185,6 @@ npx @dorywoof/agentreplay --pricing prices.json
 - [ ] Goose, Crush, Droid and Kiro sessions
 - [ ] Export to GIF / MP4 for social posts
 - [ ] Subagent (sidechain) lanes
-- [ ] `agentreplay publish`: one-command upload to a gist
 - [ ] Combine several sessions into one replay
 
 Ideas and PRs are welcome. Adding a new agent usually means a few lines in `src/parsers/agents.js` that find its files and hand them to the universal parser.
