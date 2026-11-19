@@ -98,8 +98,19 @@ export function newSession(agent, id) {
   };
 }
 
+/**
+ * Store a tool result. The replay keeps only the first `max` characters, but
+ * `outputSize` remembers how big it really was: a huge output is re-sent with
+ * every later request, which is what `insights` measures.
+ */
+export function setOutput(ev, text, max) {
+  text = text || '';
+  ev.outputSize = text.length;
+  ev.output = truncate(text, max);
+}
+
 /** Add token usage to the session totals and the per-model breakdown. */
-export function addUsage(session, model, u) {
+export function addUsage(session, model, u, t = null) {
   const key = model || 'unknown';
   const per = (session.usageByModel[key] ||= { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cacheWrite1h: 0 });
   for (const k of ['input', 'output', 'cacheRead', 'cacheWrite', 'cacheWrite1h']) {
@@ -107,7 +118,7 @@ export function addUsage(session, model, u) {
     session.usage[k] += v;
     per[k] += v;
   }
-  trackRequest(session, u);
+  trackRequest(session, u, t, key);
 }
 
 /**
@@ -115,11 +126,24 @@ export function addUsage(session, model, u) {
  * whole conversation on every request, so summed tokens grow quadratically —
  * the peak prompt is the honest "how big was this conversation" number.
  */
-export function trackRequest(session, u) {
-  const ctx = (Number(u.input) || 0) + (Number(u.cacheRead) || 0) + (Number(u.cacheWrite) || 0) + (Number(u.cacheWrite1h) || 0);
+export function trackRequest(session, u, t = null, model = null, id = null) {
+  const n = (k) => Number(u[k]) || 0;
+  const ctx = n('input') + n('cacheRead') + n('cacheWrite') + n('cacheWrite1h');
   if (!ctx && !u.output) return;
   session.requests = (session.requests || 0) + 1;
   session.peakContext = Math.max(session.peakContext || 0, ctx);
+  // Per-request log for `insights` (cache misses, context growth). Not rendered in replays.
+  (session.requestLog ||= []).push({
+    id: id || null,
+    t: Number.isFinite(t) ? t : null,
+    model: model || null,
+    ctx,
+    input: n('input'),
+    cacheRead: n('cacheRead'),
+    cacheWrite: n('cacheWrite'),
+    cacheWrite1h: n('cacheWrite1h'),
+    output: n('output'),
+  });
 }
 
 /** Codex / OpenAI apply_patch envelope → diff hunks. */

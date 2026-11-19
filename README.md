@@ -26,6 +26,8 @@ You just watched an AI agent build a feature in 6 minutes. Now you want to show 
 
 ## Features
 
+- 🔎 **`insights`: see where your tokens went.** One command scans a week of sessions from every agent and finds retry loops, giant tool outputs that every later request re-read, and cache misses, then says what to change. [More ↓](#insights-where-did-your-tokens-go)
+
 - ▶️ **Plays like a video.** Events appear in order with condensed timing; scrub, skip, pause, or change speed. Edits, errors and prompts are marked on the timeline.
 - 🤝 **Works with (almost) every agent.** Built-in support for 11 coding agents, plus a universal parser that understands Anthropic, OpenAI and Gemini message formats. Point it at any JSON or JSONL chat log and it will try to replay it.
 - 💸 **Cost and token panel.** Input, output and cache tokens. Shows the real cost when the agent records it (Cline, Roo, OpenCode), otherwise an estimate at list prices.
@@ -50,6 +52,23 @@ npx @dorywoof/agentreplay --agents   # which agents were found on this machine
 ```
 
 Requires Node 18+. Nothing is uploaded anywhere: everything happens on your machine.
+
+## Insights: where did your tokens go?
+
+```bash
+npx @dorywoof/agentreplay insights            # last 7 days, every agent
+npx @dorywoof/agentreplay insights --days 30 --agent claude
+```
+
+Reads every session on your machine (Claude Code including subagents, Codex, Gemini CLI, OpenCode, Cline…) and tells you:
+
+- **Spend** by project, agent and day, at API list prices (tokens only for models without a known price). Agents get the same yardsticks side by side: tokens per session, per tool call, cache hit rate, failed calls.
+- **Retry loops.** The same command failing 3+ times in a row, and what was spent while stuck.
+- **Huge tool outputs.** A 10k-token `cat` isn't paid once. Every later request re-reads it until the context is reset, so it shows the real carried cost.
+- **Cache misses** in the middle of a conversation, split by cause: a 5+ minute pause, a model switch, or something else.
+- **What to do**: a few concrete changes, each backed by the numbers above. Advice only appears when the data supports it.
+
+Resumed and forked sessions copy earlier history into a new log; each request is counted once. `--json` gives the raw report.
 
 ### As a Claude Code plugin
 

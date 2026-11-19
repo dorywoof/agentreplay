@@ -9,6 +9,7 @@ import { computeStats } from '../src/stats.js';
 import { loadPricing } from '../src/pricing.js';
 import { renderHtml } from '../src/render.js';
 import { installSkill, uninstallSkill } from '../src/install-skill.js';
+import { collectSessions, analyze, formatReport } from '../src/insights.js';
 
 const HELP = `
 agentreplay — turn an AI coding session into a shareable replay
@@ -20,6 +21,10 @@ Usage
   agentreplay --pick 3           replay #3 from --list
   agentreplay --session <id>     replay the session whose id / file name matches
   agentreplay --agents           show supported agents and what was found
+  agentreplay insights           where your tokens went in the last 7 days, across
+                                 every agent: spend by project/agent/day, retry
+                                 loops, huge tool outputs, cache misses, and what
+                                 to change. --days <n>, --agent <name>, --json.
   agentreplay install-skill      add a "replay" skill to every agent on this machine
                                  (Claude Code, Codex, Gemini CLI, OpenCode, Copilot,
                                  Cursor…). --project installs into the current repo,
@@ -51,6 +56,7 @@ const { values: opts, positionals } = parseArgs({
     pick: { type: 'string', short: 'p' },
     session: { type: 'string', short: 's' },
     project: { type: 'boolean' },
+    days: { type: 'string', short: 'd' },
     force: { type: 'boolean' },
     'no-thinking': { type: 'boolean' },
     'no-redact': { type: 'boolean' },
@@ -92,6 +98,20 @@ function main() {
     if (skipped.length) console.log(dim(`  not installed (agent not found): ${skipped.join(', ')}. Use --force to install anyway.`));
     if (!done.length) console.log(positionals[0] === 'install-skill' ? 'Nothing installed.' : 'No agentreplay skill found to remove.');
     else if (positionals[0] === 'install-skill') console.log(`\nRestart your agent, then ask it to ${bold('"make a replay of this session"')} (in Claude Code: ${bold('/agentreplay')}).`);
+    return;
+  }
+
+  if (positionals[0] === 'insights') {
+    if (opts.agent && !PARSERS[opts.agent]) fail(`unknown agent "${opts.agent}" (one of: ${Object.keys(PARSERS).join(', ')})`);
+    const days = Number(opts.days ?? 7);
+    if (!Number.isFinite(days) || days <= 0) fail('--days must be a positive number');
+    if (process.stderr.isTTY) process.stderr.write(dim(`reading sessions from the last ${days} days…\r`));
+    const data = collectSessions({ days, agent: opts.agent });
+    if (process.stderr.isTTY) process.stderr.write(' '.repeat(50) + '\r');
+    if (!data.sessions.length) fail(`no agent sessions in the last ${days} days`);
+    const report = analyze(data, loadPricing(opts.pricing));
+    if (opts.json) return process.stdout.write(JSON.stringify(report, null, 2) + '\n');
+    console.log(formatReport(report, { bold, dim, width: Math.min(process.stdout.columns || 80, 100) }));
     return;
   }
 

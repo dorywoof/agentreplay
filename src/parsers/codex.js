@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { readJsonl, toText, truncate, parsePatch, trackRequest, stripHarnessTags } from '../util.js';
+import { readJsonl, toText, truncate, parsePatch, trackRequest, stripHarnessTags, setOutput } from '../util.js';
 
 const MAX_OUTPUT = 4000;
 
@@ -53,7 +53,7 @@ export function parse(file) {
       const changed = !lastTotals || tot.total_tokens !== lastTotals.total_tokens || tot.input_tokens !== lastTotals.input_tokens;
       if (last && changed) {
         const cachedLast = last.cached_input_tokens || 0;
-        trackRequest(session, { input: (last.input_tokens || 0) - cachedLast, cacheRead: cachedLast, output: last.output_tokens || 0 });
+        trackRequest(session, { input: (last.input_tokens || 0) - cachedLast, cacheRead: cachedLast, output: last.output_tokens || 0 }, ts, currentModel);
       }
       lastTotals = tot;
       continue;
@@ -96,7 +96,7 @@ export function parse(file) {
         const ev = toolById.get(p.call_id);
         if (!ev) break;
         const { text, exitCode } = parseOutput(p.output);
-        ev.output = truncate(text, MAX_OUTPUT);
+        setOutput(ev, text, MAX_OUTPUT);
         ev.isError = exitCode != null && exitCode !== 0;
         ev.endT = ts;
         break;

@@ -33,7 +33,8 @@ export function loadPricing(file) {
   return { ...DEFAULT_PRICING, ...custom };
 }
 
-function rateFor(model, pricing) {
+export function rateFor(model, pricing) {
+  if (!model) return null;
   const keys = Object.keys(pricing)
     .filter((k) => model.startsWith(k))
     .sort((a, b) => b.length - a.length);
@@ -60,4 +61,26 @@ export function estimateCost(usageByModel, pricing) {
       1e6;
   }
   return any ? total : null;
+}
+
+/** USD for one logged request, or null when the model has no known price. */
+export function requestCost(req, pricing) {
+  const r = rateFor(req.model, pricing);
+  if (!r) return null;
+  const cacheRead = r.cacheRead ?? r.input * 0.1;
+  return (
+    (req.input * r.input +
+      req.output * r.output +
+      req.cacheRead * cacheRead +
+      req.cacheWrite * r.input * 1.25 +
+      (req.cacheWrite1h || 0) * r.input * 2) /
+    1e6
+  );
+}
+
+/** $/token for input, cache reads and 5-minute cache writes, or null. */
+export function tokenRates(model, pricing) {
+  const r = rateFor(model, pricing);
+  if (!r) return null;
+  return { input: r.input / 1e6, cacheRead: (r.cacheRead ?? r.input * 0.1) / 1e6, cacheWrite: (r.input * 1.25) / 1e6 };
 }

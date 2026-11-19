@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { readJsonl, toText, stripHarnessTags, truncate, lineDelta, trackRequest } from '../util.js';
+import { readJsonl, toText, stripHarnessTags, truncate, lineDelta, trackRequest, setOutput } from '../util.js';
 
 const MAX_OUTPUT = 4000;
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
@@ -52,7 +52,7 @@ export function parse(file, { includeSidechains = false } = {}) {
       // whole API message on each — count it once per message id.
       if (msg.usage && msg.id && !seenMessageIds.has(msg.id)) {
         seenMessageIds.add(msg.id);
-        addUsage(session, model, msg.usage);
+        addUsage(session, model, msg.usage, ts, msg.id);
       }
     }
 
@@ -60,7 +60,7 @@ export function parse(file, { includeSidechains = false } = {}) {
       if (r.type === 'user' && b.type === 'tool_result') {
         const ev = toolById.get(b.tool_use_id);
         if (!ev) continue;
-        ev.output = truncate(stripHarnessTags(toText(b.content)), MAX_OUTPUT);
+        setOutput(ev, stripHarnessTags(toText(b.content)), MAX_OUTPUT);
         ev.isError = !!b.is_error;
         ev.endT = ts;
         continue;
@@ -93,7 +93,7 @@ export function parse(file, { includeSidechains = false } = {}) {
   return session;
 }
 
-function addUsage(session, model, u) {
+function addUsage(session, model, u, ts, id) {
   const write1h = u.cache_creation?.ephemeral_1h_input_tokens || 0;
   const add = {
     input: u.input_tokens || 0,
@@ -108,13 +108,16 @@ function addUsage(session, model, u) {
     session.usage[k] += add[k];
     per[k] += add[k];
   }
-  trackRequest(session, add);
+  trackRequest(session, add, ts, key, id);
 }
 
 function toolEvent(b, ts) {
   const input = b.input || {};
   // mcp__Roblox_Studio__execute_luau → "Roblox Studio · execute_luau"
-  const name = b.name.replace(/^mcp__(.+?)__(.+)$/, (_, server, tool) => `${server.replace(/_/g, ' ')} · ${tool}`);
+  // Connector servers can be named by a bare id; then only the tool name is useful.
+  const name = b.name.replace(/^mcp__(.+?)__(.+)$/, (_, server, tool) =>
+    /^[0-9a-f]{8}-[0-9a-f-]{20,}$/i.test(server) ? tool : `${server.replace(/_/g, ' ')} · ${tool}`,
+  );
   const ev = { kind: 'tool', t: ts, name, summary: summarize(b.name, input), input: null, output: '', isError: false };
 
   if (EDIT_TOOLS.has(b.name)) {

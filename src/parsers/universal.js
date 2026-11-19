@@ -7,7 +7,7 @@
  */
 import path from 'node:path';
 import fs from 'node:fs';
-import { readJsonAny, toText, stripHarnessTags, truncate, lineDelta, toMs, newSession, addUsage, parsePatch, parseSearchReplace } from '../util.js';
+import { readJsonAny, toText, stripHarnessTags, truncate, lineDelta, toMs, newSession, addUsage, parsePatch, parseSearchReplace, setOutput } from '../util.js';
 
 const MAX = 4000;
 const LIST_KEYS = ['messages', 'history', 'conversation', 'chat_messages', 'chatMessages', 'turns', 'items', 'events', 'entries', 'log', 'data'];
@@ -122,7 +122,7 @@ export function buildSession(messages, opts = {}) {
     if (!ev && name) ev = [...order].reverse().find((e) => !e.done && e.rawName === name);
     if (!ev) ev = order.find((e) => !e.done);
     if (!ev) return false;
-    ev.output = truncate(stripHarnessTags(output || ''), MAX);
+    setOutput(ev, stripHarnessTags(output || ''), MAX);
     ev.isError = !!isError;
     ev.done = true;
     if (t) ev.endT = t;
@@ -138,7 +138,7 @@ export function buildSession(messages, opts = {}) {
     const model = modelOf(m) || opts.model;
     if (model) s.models.add(model);
     const u = readUsage(m.usage ?? m.tokens ?? m.usageMetadata ?? m.usage_metadata ?? m.metrics);
-    if (u) addUsage(s, model, u);
+    if (u) addUsage(s, model, u, t);
     if (typeof m.cost === 'number' && m.cost > 0) s.reportedCost = (s.reportedCost || 0) + m.cost;
 
     // Tool result messages (OpenAI role:"tool", Gemini functionResponse, Copilot tool.execution_complete …)
@@ -251,7 +251,7 @@ export function buildSession(messages, opts = {}) {
     // Gemini CLI stores the result next to the call
     const inline = tc.result ?? tc.output ?? tc.resultDisplay ?? tc.response;
     if (inline !== undefined) {
-      ev.output = truncate(resultText(inline), MAX);
+      setOutput(ev, resultText(inline), MAX);
       ev.isError = tc.status === 'error' || tc.status === 'failed' || tc.success === false;
       ev.done = true;
     }
@@ -261,7 +261,7 @@ export function buildSession(messages, opts = {}) {
     const st = p.state || {};
     const ev = toolEvent(p.tool || 'tool', st.input || {}, toMs(st.time?.start) || t);
     if (st.status === 'completed' || st.status === 'error' || st.output != null || st.error != null) {
-      ev.output = truncate(resultText(st.output ?? st.error ?? ''), MAX);
+      setOutput(ev, resultText(st.output ?? st.error ?? ''), MAX);
       ev.isError = st.status === 'error';
       ev.done = true;
       ev.endT = toMs(st.time?.end) || undefined;
