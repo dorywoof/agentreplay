@@ -19,6 +19,7 @@ const SECRET_PATTERNS = [
   ['Hugging Face token', /\bhf_[A-Za-z0-9]{30,}\b/g],
   ['JWT', /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g],
   ['bearer token', /\b(Bearer\s+)[A-Za-z0-9._~+/=-]{16,}/g],
+  ['basic auth', /\b(Basic\s+)[A-Za-z0-9+/]{16,}={0,2}/g],
   ['URL credentials', /(\w+:\/\/[^\s:/@]+:)[^\s@/]+(@)/g],
   // Env-style assignments only (UPPER_SNAKE names, case-sensitive) so ordinary
   // code like `local token = entry.Token` is left alone. Value must contain a digit.
@@ -83,6 +84,21 @@ export function createRedactor({ paths = true, emails = true } = {}) {
         s = parts.join('[REDACTED]');
       }
     }
+    // Encoded copies: URL-encoded, or base64 anywhere inside a longer blob (e.g. "Basic user:secret").
+    for (const { text, base64 } of encodedKnown) {
+      if (!s.includes(text)) continue;
+      if (base64) {
+        s = s.replace(B64_RUN, (run) => {
+          if (!run.includes(text)) return run;
+          bump('encoded secret');
+          return '[REDACTED]';
+        });
+      } else {
+        const parts = s.split(text);
+        for (let i = 1; i < parts.length; i++) bump('encoded secret');
+        s = parts.join('[REDACTED]');
+      }
+    }
     if (emails) {
       s = s.replace(EMAIL, (m) => {
         if (/noreply|example\.(com|org)/i.test(m)) return m;
@@ -115,10 +131,12 @@ export function createRedactor({ paths = true, emails = true } = {}) {
   }
 
   let knownByLength = [];
+  let encodedKnown = [];
   function redact(v) {
     // Pass 1: learn every secret value in the whole session. Pass 2: scrub.
     walk(v, (s) => (collect(s), s));
     knownByLength = [...known].sort((a, b) => b.length - a.length);
+    encodedKnown = knownByLength.flatMap(encodings);
     return walk(v, redactString);
   }
 
@@ -144,6 +162,30 @@ export function homePattern(home) {
   const body = parts.map(escapeRe).join(sep);
   // Windows paths are case-insensitive, so logs often hold c:\users\… too.
   return new RegExp(`${prefix}${body}(?![A-Za-z0-9_])`, prefix !== sep ? 'gi' : 'g');
+}
+
+const B64_RUN = /[A-Za-z0-9+/_-]{8,}={0,2}/g;
+const MIN_B64_FRAGMENT = 16; // shorter fragments could match unrelated base64
+
+/**
+ * Ways a known secret can reappear encoded. Base64 of a secret embedded in a
+ * longer value depends on where it starts (mod 3 bytes), so for each of the
+ * three offsets we keep the part of the encoding that only the secret decides.
+ */
+export function encodings(value) {
+  const out = [];
+  const url = encodeURIComponent(value);
+  if (url !== value) out.push({ text: url, base64: false });
+  const bytes = Buffer.from(value, 'utf8');
+  for (let o = 0; o < 3; o++) {
+    const enc = Buffer.concat([Buffer.alloc(o), bytes]).toString('base64');
+    const frag = enc.slice(o ? 4 : 0, Math.floor((o + bytes.length) / 3) * 4);
+    if (frag.length < MIN_B64_FRAGMENT) continue;
+    out.push({ text: frag, base64: true });
+    const urlSafe = frag.replace(/\+/g, '-').replace(/\//g, '_');
+    if (urlSafe !== frag) out.push({ text: urlSafe, base64: true });
+  }
+  return out;
 }
 
 function escapeRe(s) {

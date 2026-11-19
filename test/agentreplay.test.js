@@ -203,3 +203,28 @@ test('npm, GitLab and Hugging Face tokens are redacted', async () => {
   assert.ok(!out.b.includes('glpat-'), out.b);
   assert.ok(!out.c.includes('hf_abc'), out.c);
 });
+
+test('encoded copies of a known secret are redacted: URL-encoded and base64 at any offset', async () => {
+  const { createRedactor } = await import('../src/redact.js');
+  const secret = ['aB3+dE/fG9', '=hJ2kL5mN8pQ'].join('');
+  const b64 = (s) => Buffer.from(s).toString('base64');
+  const input = {
+    assign: `MY_API_KEY=${secret}`,
+    url: `curl "https://x.io/?k=${encodeURIComponent(secret)}"`,
+    off0: `blob ${b64(secret)} end`,
+    off1: `blob ${b64('u' + secret + 'x')} end`,
+    off2: `blob ${b64('us:' + secret)} end`,
+    urlSafe: `t=${b64('ab' + secret).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`,
+    unrelated: `sha ${b64('nothing secret in here at all, just data')}`,
+  };
+  const out = createRedactor({}).redact(input);
+  for (const k of ['url', 'off0', 'off1', 'off2', 'urlSafe']) assert.match(out[k], /\[REDACTED\]/, `${k}: ${out[k]}`);
+  assert.equal(out.unrelated, input.unrelated);
+  assert.equal(out.off0, 'blob [REDACTED] end');
+});
+
+test('a Basic auth header is redacted even when the secret was never seen elsewhere', async () => {
+  const { createRedactor } = await import('../src/redact.js');
+  const header = `Authorization: Basic ${Buffer.from(['bob', ':', 'p4ss', 'w0rd', '1234'].join('')).toString('base64')}`;
+  assert.equal(createRedactor({}).redact(header), 'Authorization: Basic [REDACTED]');
+});
