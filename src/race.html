@@ -133,7 +133,7 @@
   /* ---------- header ---------- */
   const titles = lanes.map((l) => l.title).filter(Boolean);
   const sameTask = titles.length === lanes.length && titles.every((t) => t === titles[0]);
-  $('head').innerHTML = `<div class="meta"><b>agentreplay race</b><span>·</span>${lanes.length} lanes</div>
+  $('head').innerHTML = `<div class="meta"><b>agentreplayer race</b><span>·</span>${lanes.length} lanes</div>
     <h1>${esc(D.title)}</h1>
     ${sameTask ? `<p class="task"><b>Task</b> · ${esc(titles[0])}</p>` : ''}`;
   $('arena').style.setProperty('--n', lanes.length);
@@ -154,7 +154,7 @@
   const red = D.redactions ? Object.entries(D.redactions) : [];
   const g = D.generator;
   const untimed = lanes.filter((l) => !l.timed).map(label);
-  $('foot').innerHTML = `<span>Made with ${g.url ? `<a href="${esc(g.url)}" target="_blank" rel="noopener">agentreplay</a>` : 'agentreplay'} ${esc(g.version)}</span>
+  $('foot').innerHTML = `<span>Made with ${g.url ? `<a href="${esc(g.url)}" target="_blank" rel="noopener">agentreplayer</a>` : 'agentreplayer'} ${esc(g.version)}</span>
     <span>Clocks show working time: pauses longer than 2 min count as 2 min in every lane.${untimed.length ? ` No timestamps for ${esc(untimed.join(', '))}: it advances one step every 4 s.` : ''}</span>
     ${red.length ? `<span>Removed before sharing: ${esc(red.map(([k, v]) => `${v} × ${k}`).join(', '))}</span>` : ''}`;
 
@@ -293,9 +293,9 @@
     const r = document.documentElement;
     const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
     r.dataset.theme = dark ? 'light' : 'dark';
-    try { localStorage.setItem('agentreplay-theme', r.dataset.theme); } catch {}
+    try { localStorage.setItem('agentreplayer-theme', r.dataset.theme); } catch {}
   };
-  try { const th = localStorage.getItem('agentreplay-theme'); if (th) document.documentElement.dataset.theme = th; } catch {}
+  try { const th = localStorage.getItem('agentreplayer-theme'); if (th) document.documentElement.dataset.theme = th; } catch {}
 
   const track = $('track');
   track.setAttribute('role', 'slider');

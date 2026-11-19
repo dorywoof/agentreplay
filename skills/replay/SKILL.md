@@ -7,7 +7,7 @@ allowed-tools: Bash(npx -y agentreplayer*), Bash(npx agentreplayer*)
 
 # Replay this session
 
-agentreplay (https://github.com/dorywoof/agentreplay) is a zero-dependency CLI on npm (`agentreplayer`). It reads
+agentreplayer (https://github.com/dorywoof/agentreplayer) is a zero-dependency CLI on npm (`agentreplayer`). It reads
 agent session logs from disk and writes one self-contained HTML file that plays
 the session back like a video. It runs locally and uploads nothing. It works the
 same no matter which agent is running this skill.
@@ -17,7 +17,7 @@ same no matter which agent is running this skill.
 Run this in the user's shell, with `<agent>` set to the agent you are:
 
 ```bash
-npx -y agentreplayer@latest --agent <agent> -o agentreplay.html
+npx -y agentreplayer@latest --agent <agent> -o agentreplayer.html
 ```
 
 | You are | `<agent>` |
@@ -77,5 +77,5 @@ it in Slack/Discord. If `--share` was used, give the printed link and say
 that deleting the gist takes it down. `#e42` at the end of the URL opens the
 replay at event 42 and `?static` shows everything at once.
 
-If the command fails because Node is missing, say that agentreplay needs
+If the command fails because Node is missing, say that agentreplayer needs
 Node.js 18 or newer.

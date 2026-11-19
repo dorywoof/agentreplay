@@ -1,5 +1,5 @@
 /**
- * `agentreplay race <a> <b>`: two sessions played side by side on one clock.
+ * `agentreplayer race <a> <b>`: two sessions played side by side on one clock.
  *
  * Each lane's clock is its own elapsed time since its first event, with idle
  * gaps (a human away from the keyboard) capped the same way for both lanes,
@@ -28,7 +28,7 @@ export function resolveRef(ref, { sessions = null, exclude = new Set() } = {}) {
   }
   if (/^\d+$/.test(ref)) {
     const s = all()[Number(ref) - 1];
-    if (!s) throw new Error(`no session #${ref} (run agentreplay --list)`);
+    if (!s) throw new Error(`no session #${ref} (run agentreplayer --list)`);
     return s;
   }
   if (PARSERS[ref]) {
@@ -126,5 +126,5 @@ export function renderRace(lanes, { title = null, redactions = null } = {}) {
   const labels = laneLabels(lanes);
   lanes = lanes.map((l, i) => ({ ...l, label: labels[i] }));
   const name = title || labels.join(' vs ');
-  return fillTemplate('./race.html', `${name} · agentreplay race`, { title: name, lanes, redactions, generator: generator() });
+  return fillTemplate('./race.html', `${name} · agentreplayer race`, { title: name, lanes, redactions, generator: generator() });
 }

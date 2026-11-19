@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-export const VIEWER = 'https://dorywoof.github.io/agentreplay/view.html';
+export const VIEWER = 'https://dorywoof.github.io/agentreplayer/view.html';
 const GIST_ID = /^[0-9a-f]{20,40}$/i;
 
 export function viewerUrl(gistId) {
@@ -38,7 +38,7 @@ async function viaToken(file, description, token) {
       Authorization: `Bearer ${token}`,
       Accept: 'application/vnd.github+json',
       'Content-Type': 'application/json',
-      'User-Agent': 'agentreplay',
+      'User-Agent': 'agentreplayer',
     },
     body: JSON.stringify({ description, public: false, files: { [path.basename(file)]: { content: fs.readFileSync(file, 'utf8') } } }),
   });
@@ -48,7 +48,7 @@ async function viaToken(file, description, token) {
 }
 
 /** @returns {Promise<{ id: string, gistUrl: string, url: string }>} */
-export async function shareReplay(file, { description = 'agentreplay', env = process.env, useGh = true } = {}) {
+export async function shareReplay(file, { description = 'agentreplayer', env = process.env, useGh = true } = {}) {
   const gh = useGh ? viaGh(file, description) : { skipped: 'gh disabled' };
   let result = gh;
   if (gh.skipped) {

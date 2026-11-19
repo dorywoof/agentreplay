@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SKILL_SRC = fileURLToPath(new URL('../skills/replay/SKILL.md', import.meta.url));
-export const SKILL_NAME = 'agentreplay';
+export const SKILL_NAME = 'agentreplayer';
 
 /**
  * Where each agent looks for skills. `home` is the agent's own folder: we only
@@ -68,24 +68,36 @@ export function installSkill({ home, project, only, force = false } = {}) {
       fs.mkdirSync(path.dirname(file), { recursive: true });
       fs.writeFileSync(file, text);
     }
+    // The skill used to be installed as "agentreplay": remove that copy so the agent doesn't see two.
+    if (removeOurs(path.join(t.dir, LEGACY_NAME)) && status === 'installed') status = 'updated';
     results.push({ agent: t.agent, file, status });
   }
   return results;
 }
 
-/** Our SKILL.md: current ones link the repo; ones installed before 0.8.1 name the old scoped package. */
-const isOurs = (text) => text.includes('github.com/dorywoof/agentreplay') || text.includes('@dorywoof/agentreplay');
+/** Skill folder name before the rename to agentreplayer (≤ 0.8.1). */
+export const LEGACY_NAME = 'agentreplay';
 
-/** Remove only folders this tool created (they hold our SKILL.md). */
+/** Our SKILL.md: current ones link the repo; older ones name the old repo or scoped npm package. */
+const OUR_MARKERS = ['github.com/dorywoof/agentreplayer', 'github.com/dorywoof/agentreplay', '@dorywoof/agentreplay'];
+const isOurs = (text) => OUR_MARKERS.some((m) => text.includes(m));
+
+/** Delete a skill folder only if it holds our SKILL.md. Returns true when something was removed. */
+function removeOurs(dir) {
+  const file = path.join(dir, 'SKILL.md');
+  if (!fs.existsSync(file) || !isOurs(fs.readFileSync(file, 'utf8'))) return false;
+  fs.rmSync(dir, { recursive: true, force: true });
+  return true;
+}
+
+/** Remove only folders this tool created (they hold our SKILL.md), under the current and the old name. */
 export function uninstallSkill({ home, project } = {}) {
   const results = [];
   for (const t of targets({ home, project })) {
-    const dir = path.join(t.dir, SKILL_NAME);
-    const file = path.join(dir, 'SKILL.md');
-    if (!fs.existsSync(file)) continue;
-    if (!isOurs(fs.readFileSync(file, 'utf8'))) continue; // not ours
-    fs.rmSync(dir, { recursive: true, force: true });
-    results.push({ agent: t.agent, file, status: 'removed' });
+    for (const name of [SKILL_NAME, LEGACY_NAME]) {
+      const dir = path.join(t.dir, name);
+      if (removeOurs(dir)) results.push({ agent: t.agent, file: path.join(dir, 'SKILL.md'), status: 'removed' });
+    }
   }
   return results;
 }

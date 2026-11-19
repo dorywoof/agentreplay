@@ -11,7 +11,7 @@ const ID = 'aa11bb22cc33dd44ee55ff66aa77bb88';
 test('reads the gist id from gh output and builds the viewer link', () => {
   assert.equal(gistIdFrom(`- Creating gist replay.html\n✓ Created secret gist replay.html\nhttps://gist.github.com/someone/${ID}\n`), ID);
   assert.equal(gistIdFrom('nothing here'), null);
-  assert.equal(viewerUrl(ID), `https://dorywoof.github.io/agentreplay/view.html#${ID}`);
+  assert.equal(viewerUrl(ID), `https://dorywoof.github.io/agentreplayer/view.html#${ID}`);
 });
 
 test('uploads with a token as a secret gist', async (t) => {
@@ -43,7 +43,7 @@ test('surfaces GitHub API errors', async (t) => {
 
 test('CLI loads and --share refuses an unredacted upload', async () => {
   const { spawnSync } = await import('node:child_process');
-  const bin = fileURLToPath(new URL('../bin/agentreplay.js', import.meta.url));
+  const bin = fileURLToPath(new URL('../bin/agentreplayer.js', import.meta.url));
   const help = spawnSync(process.execPath, [bin, '--help'], { encoding: 'utf8' });
   assert.equal(help.status, 0, help.stderr);
   assert.match(help.stdout, /--share/);

@@ -6,7 +6,7 @@ const LS = new RegExp(String.fromCharCode(0x2028), 'g');
 const PS = new RegExp(String.fromCharCode(0x2029), 'g');
 const PKG = JSON.parse(fs.readFileSync(file('../package.json'), 'utf8'));
 
-export const generator = () => ({ name: 'agentreplay', version: PKG.version, url: PKG.homepage || null });
+export const generator = () => ({ name: 'agentreplayer', version: PKG.version, url: PKG.homepage || null });
 
 /** JSON that is safe inside <script>: "</script>" in session text can't break out of the data block. */
 export function safeJson(data) {

@@ -14,28 +14,28 @@ import { shareReplay } from '../src/share.js';
 import { resolveRef, buildLane, renderRace, laneLabels, MAX_LANES } from '../src/race.js';
 
 const HELP = `
-agentreplay — turn an AI coding session into a shareable replay
+agentreplayer — turn an AI coding session into a shareable replay
 
 Usage
-  agentreplay                    replay your most recent session
-  agentreplay <session.jsonl>    replay a specific log file
-  agentreplay --list             list recent sessions
-  agentreplay --pick 3           replay #3 from --list
-  agentreplay --session <id>     replay the session whose id / file name matches
-  agentreplay --agents           show supported agents and what was found
-  agentreplay insights           where your tokens went in the last 7 days, across
+  agentreplayer                    replay your most recent session
+  agentreplayer <session.jsonl>    replay a specific log file
+  agentreplayer --list             list recent sessions
+  agentreplayer --pick 3           replay #3 from --list
+  agentreplayer --session <id>     replay the session whose id / file name matches
+  agentreplayer --agents           show supported agents and what was found
+  agentreplayer insights           where your tokens went in the last 7 days, across
                                  every agent: spend by project/agent/day, retry
                                  loops, huge tool outputs, cache misses, and what
                                  to change. --days <n>, --agent <name>, --json.
-  agentreplay race <a> <b> [c…]  2 to 6 sessions side by side on one clock:
+  agentreplayer race <a> <b> [c…]  2 to 6 sessions side by side on one clock:
                                  "race claude codex" (newest of each), "race
                                  claude claude gemini" (two newest Claude), log
                                  files, or --list numbers ("race 1 3 4")
-  agentreplay install-skill      add a "replay" skill to every agent on this machine
+  agentreplayer install-skill      add a "replay" skill to every agent on this machine
                                  (Claude Code, Codex, Gemini CLI, OpenCode, Copilot,
                                  Cursor…). --project installs into the current repo,
                                  --agent <name> limits it to one agent.
-  agentreplay uninstall-skill    remove it again
+  agentreplayer uninstall-skill    remove it again
 
 Options
   -o, --out <file>      output HTML path (default: ./replay-<id>.html)
@@ -82,7 +82,7 @@ const dim = (s) => (process.stdout.isTTY ? `\x1b[2m${s}\x1b[0m` : s);
 const bold = (s) => (process.stdout.isTTY ? `\x1b[1m${s}\x1b[0m` : s);
 
 function fail(msg) {
-  console.error(`agentreplay: ${msg}`);
+  console.error(`agentreplayer: ${msg}`);
   process.exit(1);
 }
 
@@ -106,8 +106,8 @@ async function main() {
     for (const r of done) console.log(`${bold('✓')} ${r.agent.padEnd(20)} ${dim(r.status.padEnd(9))} ${r.file}`);
     const skipped = results.filter((r) => r.status === 'skipped').map((r) => r.agent);
     if (skipped.length) console.log(dim(`  not installed (agent not found): ${skipped.join(', ')}. Use --force to install anyway.`));
-    if (!done.length) console.log(positionals[0] === 'install-skill' ? 'Nothing installed.' : 'No agentreplay skill found to remove.');
-    else if (positionals[0] === 'install-skill') console.log(`\nRestart your agent, then ask it to ${bold('"make a replay of this session"')} (in Claude Code: ${bold('/agentreplay')}).`);
+    if (!done.length) console.log(positionals[0] === 'install-skill' ? 'Nothing installed.' : 'No agentreplayer skill found to remove.');
+    else if (positionals[0] === 'install-skill') console.log(`\nRestart your agent, then ask it to ${bold('"make a replay of this session"')} (in Claude Code: ${bold('/agentreplayer')}).`);
     return;
   }
 
@@ -136,7 +136,7 @@ async function main() {
       const n = listSessions({ agent: key }).length;
       console.log(`  ${key.padEnd(9)} ${src.label.padEnd(13)} ${n ? bold(String(n)) : dim('0')}`);
     }
-    console.log('\n' + dim('Any other JSON / JSONL chat log works too: agentreplay path/to/log.json'));
+    console.log('\n' + dim('Any other JSON / JSONL chat log works too: agentreplayer path/to/log.json'));
     return;
   }
 
@@ -147,7 +147,7 @@ async function main() {
       const tag = PARSERS[s.agent].label.padEnd(12);
       console.log(`${bold(String(i + 1).padStart(2))}  ${tag}  ${dim(ago(s.mtime).padEnd(8))}  ${preview(s.file, s.agent)}`);
     });
-    console.log(dim('\nReplay one with: agentreplay --pick <n>'));
+    console.log(dim('\nReplay one with: agentreplayer --pick <n>'));
     return;
   }
 
@@ -156,7 +156,7 @@ async function main() {
     file = path.resolve(positionals[0]);
     if (!fs.existsSync(file.split('#')[0])) fail(`file not found: ${file}`);
     agent = opts.agent || detectAgent(file);
-    if (!agent) fail('could not find a conversation in this file. Run agentreplay --agents to see supported formats.');
+    if (!agent) fail('could not find a conversation in this file. Run agentreplayer --agents to see supported formats.');
   } else {
     const sessions = listSessions({ agent: opts.agent });
     if (!sessions.length) fail('no agent sessions found on this machine. Pass a log file path instead.');
@@ -223,7 +223,7 @@ async function main() {
   console.log(dim(`  ${session.events.length} events · ${stats.toolCalls} tool calls · ${stats.files.length} files · ${mins} min${cost}`));
   printRedactions(redactions);
   console.log(`  → ${out}`);
-  await deliver(out, `${session.title || 'Untitled'} · ${session.agent} replay (agentreplay)`);
+  await deliver(out, `${session.title || 'Untitled'} · ${session.agent} replay (agentreplayer)`);
 }
 
 function printRedactions(redactions) {
@@ -251,7 +251,7 @@ async function deliver(out, description) {
 
 async function race(refs) {
   if (refs.length < 2 || refs.length > MAX_LANES) {
-    fail(`race needs 2 to ${MAX_LANES} sessions: agentreplay race <a> <b> [c …]  (each a log file, a --list number, or an agent like claude / codex)`);
+    fail(`race needs 2 to ${MAX_LANES} sessions: agentreplayer race <a> <b> [c …]  (each a log file, a --list number, or an agent like claude / codex)`);
   }
   const allSessions = listSessions();
   const used = new Set();
@@ -296,7 +296,7 @@ async function race(refs) {
   });
   printRedactions(redactions);
   console.log(`  → ${out}`);
-  await deliver(out, `${labels.join(' vs ')} race (agentreplay)`);
+  await deliver(out, `${labels.join(' vs ')} race (agentreplayer)`);
 }
 
 function openFile(file) {

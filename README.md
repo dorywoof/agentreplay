@@ -1,4 +1,4 @@
-<h1 align="center">agentreplay</h1>
+<h1 align="center">agentreplayer</h1>
 
 <p align="center">
   <b>Turn any AI coding agent session into a shareable, video-like replay.</b><br>
@@ -11,18 +11,18 @@
 </p>
 
 <p align="center">
-  <a href="https://dorywoof.github.io/agentreplay/"><b>▶ Try the live demo</b></a>
+  <a href="https://dorywoof.github.io/agentreplayer/"><b>▶ Try the live demo</b></a>
 </p>
 
 <p align="center">
-  <a href="https://dorywoof.github.io/agentreplay/"><img src="docs/demo.gif" alt="agentreplay playing back a Claude Code session: prompts, tool calls, diffs, a failing test and the fix" width="800"></a>
+  <a href="https://dorywoof.github.io/agentreplayer/"><img src="docs/demo.gif" alt="agentreplayer playing back a Claude Code session: prompts, tool calls, diffs, a failing test and the fix" width="800"></a>
 </p>
 
 ---
 
 You just watched an AI agent build a feature in 6 minutes. Now you want to show someone — but all you have is a 4 MB JSONL file nobody can read.
 
-**agentreplay** turns that log into a page that *plays back* the session: prompts, reasoning, every tool call, every diff, with a scrubbable timeline and a summary card that says what it did, how long it took and what it cost.
+**agentreplayer** turns that log into a page that *plays back* the session: prompts, reasoning, every tool call, every diff, with a scrubbable timeline and a summary card that says what it did, how long it took and what it cost.
 
 ## Features
 
@@ -89,17 +89,17 @@ Resumed and forked sessions copy earlier history into a new log; each request is
 Replay the session you're in without leaving Claude Code:
 
 ```
-/plugin install agentreplay --marketplace dorywoof/agentreplay
+/plugin install agentreplayer --marketplace dorywoof/agentreplayer
 ```
 
 On older Claude Code versions, use two steps instead:
 
 ```
-/plugin marketplace add dorywoof/agentreplay
-/plugin install agentreplay@agentreplay
+/plugin marketplace add dorywoof/agentreplayer
+/plugin install agentreplayer@agentreplayer
 ```
 
-Then type `/agentreplay:replay`, or just ask *"make a replay of this session"*. Claude runs the CLI for you, writes the HTML next to your project and tells you what was redacted. Arguments pass through, for example `/agentreplay:replay --list`.
+Then type `/agentreplayer:replay`, or just ask *"make a replay of this session"*. Claude runs the CLI for you, writes the HTML next to your project and tells you what was redacted. Arguments pass through, for example `/agentreplayer:replay --list`.
 
 ### As a skill in Codex, Gemini CLI, OpenCode, Copilot, Cursor…
 
@@ -111,14 +111,14 @@ npx agentreplayer install-skill
 
 | Agent | Installed to |
 |---|---|
-| Shared folder several agents read | `~/.agents/skills/agentreplay/` (always) |
-| Claude Code | `~/.claude/skills/agentreplay/` |
-| Codex | `~/.codex/skills/agentreplay/` |
-| Gemini CLI | `~/.gemini/skills/agentreplay/` |
-| Qwen Code | `~/.qwen/skills/agentreplay/` |
-| OpenCode | `~/.config/opencode/skills/agentreplay/` |
-| GitHub Copilot | `~/.copilot/skills/agentreplay/` |
-| Cursor | `~/.cursor/skills/agentreplay/` |
+| Shared folder several agents read | `~/.agents/skills/agentreplayer/` (always) |
+| Claude Code | `~/.claude/skills/agentreplayer/` |
+| Codex | `~/.codex/skills/agentreplayer/` |
+| Gemini CLI | `~/.gemini/skills/agentreplayer/` |
+| Qwen Code | `~/.qwen/skills/agentreplayer/` |
+| OpenCode | `~/.config/opencode/skills/agentreplayer/` |
+| GitHub Copilot | `~/.copilot/skills/agentreplayer/` |
+| Cursor | `~/.cursor/skills/agentreplayer/` |
 | Windsurf, Amp, Goose | their own `skills/` folders |
 
 Folders are only written for agents that are installed (`--force` writes all of them). `--agent codex` limits it to one agent, `--project` installs into the current repo instead (`.agents/skills`, `.claude/skills`, …) so your whole team gets it, and `uninstall-skill` removes it again. Restart the agent afterwards, then ask it to *"make a replay of this session"*.
@@ -146,7 +146,7 @@ Sessions are found automatically. You can also pass any file directly.
 
 `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `GEMINI_DIR`, `QWEN_DATA_DIR`, `AMP_DATA_DIR`, `COPILOT_HOME` and `XDG_DATA_HOME` are respected. Reading `opencode.db` needs Node 22.5+ (built-in SQLite).
 
-> Only Claude Code and Codex have been tested against real logs so far. The others are built from their documented formats and tested with fixtures. If a session from your agent doesn't replay correctly, please [open an issue](https://github.com/dorywoof/agentreplay/issues) with a redacted sample.
+> Only Claude Code and Codex have been tested against real logs so far. The others are built from their documented formats and tested with fixtures. If a session from your agent doesn't replay correctly, please [open an issue](https://github.com/dorywoof/agentreplayer/issues) with a redacted sample.
 
 ## Options
 
@@ -173,7 +173,7 @@ One command gives you a link:
 npx agentreplayer --share
 ```
 
-This uploads the redacted replay as a **secret GitHub Gist** and prints a link like `https://dorywoof.github.io/agentreplay/view.html#<gist-id>`. It uses the GitHub CLI if you're logged in (`gh auth login`), otherwise a `GITHUB_TOKEN` with the `gist` scope. Secret gists aren't listed or searchable, but anyone with the link can view it. Delete the gist to take it down. `--share` refuses to run with `--no-redact`.
+This uploads the redacted replay as a **secret GitHub Gist** and prints a link like `https://dorywoof.github.io/agentreplayer/view.html#<gist-id>`. It uses the GitHub CLI if you're logged in (`gh auth login`), otherwise a `GITHUB_TOKEN` with the `gist` scope. Secret gists aren't listed or searchable, but anyone with the link can view it. Delete the gist to take it down. `--share` refuses to run with `--no-redact`.
 
 The viewer loads the gist in a sandboxed iframe, so a replay can't run code on the viewer's site. Add `/e42` after the gist id to open at event 42 (`view.html#<id>/e42`).
 

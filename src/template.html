@@ -118,7 +118,7 @@
 
   const red = D.redactions ? Object.entries(D.redactions) : [];
   const g = D.generator;
-  $('foot').innerHTML = `<span>${esc(tr('madeWith'))} ${g.url ? `<a href="${esc(g.url)}" target="_blank" rel="noopener">agentreplay</a>` : 'agentreplay'} ${esc(g.version)}</span>
+  $('foot').innerHTML = `<span>${esc(tr('madeWith'))} ${g.url ? `<a href="${esc(g.url)}" target="_blank" rel="noopener">agentreplayer</a>` : 'agentreplayer'} ${esc(g.version)}</span>
     ${red.length ? `<span>${esc(tr('redacted', { list: red.map(([k, v]) => `${v} × ${k}`).join(', ') }))}</span>` : ''}`;
 
   /* ---------- markdown (small, safe) ---------- */
@@ -282,9 +282,9 @@
     const r = document.documentElement;
     const dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
     r.dataset.theme = dark ? 'light' : 'dark';
-    try { localStorage.setItem('agentreplay-theme', r.dataset.theme); } catch {}
+    try { localStorage.setItem('agentreplayer-theme', r.dataset.theme); } catch {}
   };
-  try { const th = localStorage.getItem('agentreplay-theme'); if (th) document.documentElement.dataset.theme = th; } catch {}
+  try { const th = localStorage.getItem('agentreplayer-theme'); if (th) document.documentElement.dataset.theme = th; } catch {}
 
   track.setAttribute('role', 'slider');
   track.setAttribute('aria-label', tr('seek'));

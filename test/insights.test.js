@@ -84,6 +84,6 @@ test('report renders and unknown models are reported as tokens, not dollars', ()
   assert.deepEqual(R.unpricedModels, ['mystery-1']);
   assert.ok(R.total.unpricedTokens > 0 && R.total.cost > 0);
   const text = formatReport(R);
-  assert.match(text, /agentreplay insights/);
+  assert.match(text, /agentreplayer insights/);
   assert.match(text, /no price for mystery-1/);
 });

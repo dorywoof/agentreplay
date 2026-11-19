@@ -10,7 +10,7 @@ import { DEFAULT_PRICING } from '../src/pricing.js';
 
 const T0 = Date.parse('2026-03-02T10:00:00Z');
 const S = 1000;
-const BIN = fileURLToPath(new URL('../bin/agentreplay.js', import.meta.url));
+const BIN = fileURLToPath(new URL('../bin/agentreplayer.js', import.meta.url));
 const DEMO = fileURLToPath(new URL('../examples/demo-session.jsonl', import.meta.url));
 
 test('working clock caps idle gaps the same way for every lane', () => {
@@ -49,7 +49,7 @@ test('race HTML keeps session text inside the data block', () => {
   const html = renderRace([lane, { ...lane, agent: 'B' }]);
   assert.equal(html.split('</script>').length - 1, 2, 'only the template’s two script tags close');
   assert.ok(html.includes('--bg:'), 'theme CSS is inlined');
-  assert.match(html, /<title>A vs B · agentreplay race<\/title>/);
+  assert.match(html, /<title>A vs B · agentreplayer race<\/title>/);
 });
 
 test('lane refs: files and unknown names', () => {
@@ -93,7 +93,7 @@ test('CLI race writes a page and rejects bad input', () => {
   const ok = spawnSync(process.execPath, [BIN, 'race', DEMO, other, '-o', out, '--no-open'], { encoding: 'utf8' });
   assert.equal(ok.status, 0, ok.stderr);
   assert.match(ok.stdout, /race · Claude Code #1 vs Claude Code #2/);
-  assert.ok(fs.readFileSync(out, 'utf8').includes('agentreplay race'));
+  assert.ok(fs.readFileSync(out, 'utf8').includes('agentreplayer race'));
   const same = spawnSync(process.execPath, [BIN, 'race', DEMO, DEMO, '--no-open'], { encoding: 'utf8' });
   assert.match(same.stderr, /same session/);
   const one = spawnSync(process.execPath, [BIN, 'race', DEMO, '--no-open'], { encoding: 'utf8' });

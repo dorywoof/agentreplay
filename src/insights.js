@@ -1,5 +1,5 @@
 /**
- * `agentreplay insights`: where your agent tokens went across every session of
+ * `agentreplayer insights`: where your agent tokens went across every session of
  * the last N days, and where they were wasted.
  *
  * Every number here comes from the logs. Anything estimated says how:
@@ -352,7 +352,7 @@ export function recommend(R) {
     recs.push({
       kind: 'errors',
       weight: 0,
-      text: `${Math.round((total.errors / total.toolCalls) * 100)}% of tool calls failed. Check the failing ones with agentreplay --list and replay the worst session.`,
+      text: `${Math.round((total.errors / total.toolCalls) * 100)}% of tool calls failed. Check the failing ones with agentreplayer --list and replay the worst session.`,
     });
   }
   return recs.sort((a, b) => b.weight - a.weight);
@@ -389,7 +389,7 @@ export function formatReport(R, { bold = (s) => s, dim = (s) => s, width = 72 } 
   const bar = (v, max, w = 18) => '█'.repeat(Math.max(v > 0 ? 1 : 0, Math.round((v / (max || 1)) * w)));
   const cut = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
 
-  L.push(bold(`agentreplay insights · last ${R.days} day${R.days > 1 ? 's' : ''}`));
+  L.push(bold(`agentreplayer insights · last ${R.days} day${R.days > 1 ? 's' : ''}`));
   L.push(
     dim(
       `${R.sessions} sessions${R.subagents ? ` + ${R.subagents} subagent logs` : ''} · ${fmtTok(T.tokens)} tokens · ${T.requests} requests · ${T.toolCalls} tool calls (${T.errors} failed)`,

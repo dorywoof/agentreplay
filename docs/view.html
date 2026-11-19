@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>agentreplay</title>
-<meta name="description" content="An AI coding session, played back like a video. Made with agentreplay.">
+<title>agentreplayer</title>
+<meta name="description" content="An AI coding session, played back like a video. Made with agentreplayer.">
 <style>
   :root { --bg: #fbfbfa; --fg: #1d1d1b; --mute: #6b6b66; color-scheme: light dark; }
   @media (prefers-color-scheme: dark) { :root { --bg: #141413; --fg: #ecebe6; --mute: #9a9993; } }
@@ -21,7 +21,7 @@
 (async () => {
   const msg = document.getElementById('msg');
   const say = (html) => { msg.innerHTML = html; };
-  const repo = '<a href="https://github.com/dorywoof/agentreplay">agentreplay</a>';
+  const repo = '<a href="https://github.com/dorywoof/agentreplayer">agentreplayer</a>';
 
   // #<gist id>[/e42][?lang=xx|static]  →  the gist id, plus what to hand to the replay
   const m = location.hash.match(/^#([0-9a-f]{20,40})(?:\/(e\d+))?(?:\?(.*))?$/i);
