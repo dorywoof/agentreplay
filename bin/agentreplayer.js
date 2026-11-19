@@ -263,9 +263,7 @@ async function live(kind) {
       const out = path.join(replaysDir(), `${day}-${slug}-${String(session.id).slice(0, 8)}.html`);
       fs.mkdirSync(path.dirname(out), { recursive: true });
       fs.writeFileSync(out, renderHtml(session, stats, { redactions: r.counts }));
-      // SessionEnd shows stderr to the user only with exit code 2.
-      process.stderr.write(`agentreplayer: ${summaryLine(session, stats)}\n  replay: ${out}\n`);
-      process.exit(2);
+      process.stdout.write(JSON.stringify({ systemMessage: `agentreplayer: ${summaryLine(session, stats)} · replay: ${out}` }) + '\n');
     } catch {
       /* the session is over anyway; stay quiet */
     }
