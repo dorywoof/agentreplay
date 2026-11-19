@@ -38,6 +38,20 @@ export const DEFAULT_PRICING = {
   'gpt-6-luna': { input: 0.1, output: 0.5, cacheRead: 0.01, above: { tokens: 272_000, input: 0.2, output: 0.75, cacheRead: 0.02 } },
   'gpt-6-cyber': { input: 20, output: 100, cacheRead: 2, above: { tokens: 272_000, input: 40, output: 150, cacheRead: 4 } },
   'gpt-6-rosalind': { input: 10, output: 50, cacheRead: 1, above: { tokens: 272_000, input: 20, output: 75, cacheRead: 2 } },
+  // Google (Gemini CLI, Antigravity). Standard paid tier; `from` lists announced price changes.
+  'gemini-4-carbon': { input: 2, output: 10, cacheRead: 0.1, from: [{ date: '2026-12-01', input: 4, output: 20, cacheRead: 0.2 }] },
+  'gemini-4-argon': { input: 2, output: 10, cacheRead: 0.1, from: [{ date: '2026-12-01', input: 4, output: 20, cacheRead: 0.2 }] },
+  'gemini-4-neon': { input: 3, output: 15, cacheRead: 0.15 },
+  'gemini-4-hydrogen': { input: 1.5, output: 7.5, cacheRead: 0.075 },
+  'gemini-3.8-flash': { input: 0.75, output: 3.75, cacheRead: 0.075, from: [{ date: '2027-01-01', input: 1.5, output: 7.5, cacheRead: 0.15 }] },
+  'gemini-3.6-flash': { input: 0.75, output: 3.75, cacheRead: 0.075, from: [{ date: '2027-01-01', input: 1.5, output: 7.5, cacheRead: 0.15 }] },
+  'gemini-3.5-flash-lite': { input: 0.3, output: 2.5, cacheRead: 0.03 },
+  'gemini-3.1-pro': { input: 2, output: 12, cacheRead: 0.2, above: { tokens: 200_000, input: 4, output: 18, cacheRead: 0.4 } },
+  'gemini-3.1-flash-lite': { input: 0.25, output: 1.5, cacheRead: 0.025 },
+  'gemini-3-flash': { input: 0.5, output: 3, cacheRead: 0.05 },
+  'gemini-2.5-pro': { input: 1.25, output: 10, above: { tokens: 200_000, input: 2.5, output: 15 } },
+  'gemini-2.5-flash-lite': { input: 0.1, output: 0.4, cacheRead: 0.01 },
+  'gemini-2.5-flash': { input: 0.3, output: 2.5 },
 };
 
 export function loadPricing(file) {
@@ -51,7 +65,7 @@ export function loadPricing(file) {
  * "us.anthropic.") and date suffixes are ignored. With `ctx` (the prompt size),
  * a long-prompt tier is applied when the model has one.
  */
-export function rateFor(model, pricing, ctx = 0) {
+export function rateFor(model, pricing, ctx = 0, t = Date.now()) {
   if (!model) return null;
   const id = String(model).toLowerCase();
   const at = id.indexOf('claude-');
@@ -60,7 +74,9 @@ export function rateFor(model, pricing, ctx = 0) {
     .filter((k) => names.some((n) => n.startsWith(k)))
     .sort((a, b) => b.length - a.length);
   if (!keys.length) return null;
-  const r = pricing[keys[0]];
+  let r = pricing[keys[0]];
+  // Announced price changes apply to requests made on or after their date (UTC).
+  for (const c of r.from || []) if ((t ?? Date.now()) >= Date.parse(`${c.date}T00:00:00Z`)) r = { ...r, ...c };
   if (r.above && ctx > r.above.tokens) return { input: r.above.input, output: r.above.output, cacheRead: r.above.cacheRead };
   return r;
 }
@@ -91,7 +107,7 @@ export function estimateCost(usageByModel, pricing) {
 
 /** USD for one logged request split by token kind, or null when the model has no known price. */
 export function requestCostParts(req, pricing) {
-  const r = rateFor(req.model, pricing, promptSize(req));
+  const r = rateFor(req.model, pricing, promptSize(req), req.t);
   if (!r) return null;
   const cacheRead = r.cacheRead ?? r.input * 0.1;
   return {

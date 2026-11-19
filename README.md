@@ -208,7 +208,7 @@ The output is also a plain static file, so you can host it anywhere else: a `gh-
 
 ## About the cost estimate
 
-When the agent records what a session cost (Cline, Roo, Kilo, OpenCode), that number is shown. Otherwise cost is estimated from public per-token API list prices (including cache reads and writes) for the Claude models it knows about. If you're on a subscription plan, it shows what the session *would* cost on the API. For models it has no price for, only token counts are shown. You can supply your own prices:
+When the agent records what a session cost (Cline, Roo, Kilo, OpenCode), that number is shown. Otherwise cost is estimated from public per-token API list prices (including cache reads and writes) for the Claude, OpenAI (Codex) and Gemini models it knows about, including long-prompt tiers and announced price changes by date. If you're on a subscription plan, it shows what the session *would* cost on the API. For models it has no price for, only token counts are shown. You can supply your own prices:
 
 ```json
 { "gpt-6.1": { "input": 1.25, "output": 10, "cacheRead": 0.125 } }

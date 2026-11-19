@@ -63,3 +63,12 @@ test('OpenAI models have prices, with the long-context tier over 272k', () => {
   near(requestCost({ model: 'gpt-6.1-sol', input: 10_000, cacheRead: 100_000, output: 1_000 }, DEFAULT_PRICING), (10_000 * 2 + 100_000 * 0.1 + 1_000 * 10) / 1e6);
   near(requestCost({ model: 'gpt-6.1-sol', input: 10_000, cacheRead: 300_000, output: 1_000 }, DEFAULT_PRICING), (10_000 * 4 + 300_000 * 0.2 + 1_000 * 15) / 1e6);
 });
+
+test('Gemini: announced price changes apply by request date, and the >200k tier', () => {
+  const at = (d) => Date.parse(d);
+  near(requestCost({ model: 'gemini-4-carbon', t: at('2026-11-30T23:00:00Z'), input: 1e6, output: 0 }, DEFAULT_PRICING), 2);
+  near(requestCost({ model: 'gemini-4-carbon', t: at('2026-12-01T01:00:00Z'), input: 1e6, output: 0 }, DEFAULT_PRICING), 4);
+  near(requestCost({ model: 'models/gemini-3.1-pro-preview', input: 100_000, output: 0 }, DEFAULT_PRICING), 0.2);
+  near(requestCost({ model: 'gemini-3.1-pro-preview-customtools', input: 250_000, output: 0 }, DEFAULT_PRICING), 1);
+  assert.equal(rateFor('gemini-2.5-flash-lite', DEFAULT_PRICING), DEFAULT_PRICING['gemini-2.5-flash-lite']);
+});
