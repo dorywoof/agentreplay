@@ -223,6 +223,52 @@ test('encoded copies of a known secret are redacted: URL-encoded and base64 at a
   assert.equal(out.off0, 'blob [REDACTED] end');
 });
 
+test('hex copies of a known secret are redacted: contiguous, separated, and inside xxd / hexdump -C dumps', async () => {
+  const { createRedactor } = await import('../src/redact.js');
+  const secret = ['Zq7wV2', 'nR8tY4', 'pL1xK6'].join('');
+  const body = Buffer.from(`{"user":"bob","key":"${secret}","n":1}`);
+  const hex = (b) => [...b].map((x) => x.toString(16).padStart(2, '0'));
+  const ascii = (b) => [...b].map((x) => (x >= 32 && x < 127 ? String.fromCharCode(x) : '.')).join('');
+  const rows = (b, fn) => {
+    const out = [];
+    for (let i = 0; i < b.length; i += 16) out.push(fn(b.subarray(i, i + 16), i));
+    return out.join('\n');
+  };
+  const xxd = rows(body, (r, i) => {
+    const h = hex(r);
+    const groups = [];
+    for (let j = 0; j < h.length; j += 2) groups.push(h.slice(j, j + 2).join(''));
+    return `${i.toString(16).padStart(8, '0')}: ${groups.join(' ').padEnd(39)}  ${ascii(r)}`;
+  });
+  const hexdumpC = rows(body, (r, i) => {
+    const h = hex(r);
+    return `${i.toString(16).padStart(8, '0')}  ${h.slice(0, 8).join(' ')}  ${h.slice(8).join(' ')}  |${ascii(r)}|`;
+  });
+  const s = Buffer.from(secret);
+  const input = {
+    assign: `MY_API_KEY=${secret}`,
+    lower: `body=${hex(s).join('')}`,
+    upper: `BODY=${hex(s).join('').toUpperCase()}`,
+    spaced: `bytes: ${hex(s).join(' ')}`,
+    escaped: `printf '${hex(s).map((h) => '\\x' + h).join('')}'`,
+    cArray: `{ ${hex(s).map((h) => '0x' + h).join(', ')} }`,
+    plain: hex(body).join('').match(/.{1,60}/g).join('\n'),
+    xxd,
+    hexdumpC,
+    jsonEscaped: JSON.stringify(xxd).slice(1, -1),
+    unrelated: `sha256 ${hex(Buffer.from('nothing secret in here at all')).join('')}`,
+  };
+  const out = createRedactor({}).redact(input);
+  const secretHex = hex(s).join('');
+  for (const k of Object.keys(input).filter((k) => k !== 'unrelated' && k !== 'assign')) {
+    assert.match(out[k], /\[REDACTED\]/, `${k}: ${out[k]}`);
+    const leftover = out[k].replace(/[^0-9a-f]/gi, '').toLowerCase();
+    assert.ok(!leftover.includes(secretHex.slice(0, 16)), `${k} still holds the start of the secret: ${out[k]}`);
+  }
+  assert.equal(out.lower, 'body=[REDACTED]');
+  assert.equal(out.unrelated, input.unrelated);
+});
+
 test('a Basic auth header is redacted even when the secret was never seen elsewhere', async () => {
   const { createRedactor } = await import('../src/redact.js');
   const header = `Authorization: Basic ${Buffer.from(['bob', ':', 'p4ss', 'w0rd', '1234'].join('')).toString('base64')}`;

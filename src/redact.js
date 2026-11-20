@@ -85,7 +85,14 @@ export function createRedactor({ paths = true, emails = true } = {}) {
       }
     }
     // Encoded copies: URL-encoded, or base64 anywhere inside a longer blob (e.g. "Basic user:secret").
-    for (const { text, base64 } of encodedKnown) {
+    for (const { text, base64, re } of encodedKnown) {
+      if (re) {
+        s = s.replace(re, () => {
+          bump('encoded secret');
+          return '[REDACTED]';
+        });
+        continue;
+      }
       if (!s.includes(text)) continue;
       if (base64) {
         s = s.replace(B64_RUN, (run) => {
@@ -177,6 +184,7 @@ export function encodings(value) {
   const url = encodeURIComponent(value);
   if (url !== value) out.push({ text: url, base64: false });
   const bytes = Buffer.from(value, 'utf8');
+  out.push({ re: hexPattern(bytes) });
   for (let o = 0; o < 3; o++) {
     const enc = Buffer.concat([Buffer.alloc(o), bytes]).toString('base64');
     const frag = enc.slice(o ? 4 : 0, Math.floor((o + bytes.length) / 3) * 4);
@@ -186,6 +194,19 @@ export function encodings(value) {
     if (urlSafe !== frag) out.push({ text: urlSafe, base64: true });
   }
   return out;
+}
+
+// Between two hex bytes: nothing, a separator (space, comma, colon, %, 0x or backslash-x),
+// or a line break of a dump, with the ASCII column before it and an offset after
+// (xxd, xxd -p, hexdump -C). Newlines may be real or JSON-escaped.
+const HEX_GAP = String.raw`(?:\\x|0x|%|[ \t,:]+(?:\\x|0x)?|[^\r\n]{0,24}?(?:\r?\n|(?:\\r)?\\n)[ \t]*(?:[0-9a-f]{4,16}:?[ \t]+)?(?:\\x|0x)?)?`;
+
+/** Hex of a secret, upper or lower case, contiguous or spread over a hexdump. */
+export function hexPattern(bytes) {
+  const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0'));
+  // No word boundaries: a request body dumped with xxd -p puts the secret in the
+  // middle of one long hex run. 16+ hex digits do not match by accident.
+  return new RegExp(hex.join(HEX_GAP), 'gi');
 }
 
 function escapeRe(s) {
